@@ -55,7 +55,7 @@ async function main() {
 
   if (codemap.meta.frameworks.length > 0) {
     console.log(
-      `  Frameworks: ${codemap.meta.frameworks.map((f) => f.name).join(", ")}`,
+      `  Frameworks: ${codemap.meta.frameworks.map((f: { name: string }) => f.name).join(", ")}`,
     );
   }
 
