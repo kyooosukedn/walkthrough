@@ -57,7 +57,7 @@ Single-threaded Node, no cache, cold start included (Windows 11, Ryzen 7 5700U):
 
 ## What works today (v0.1)
 
-- [x] File tree + stats scanning
+- [x] Routes view (Next.js App Router + Pages Router analyzers)
 - [x] Import graph with alias resolution
 - [x] Entry-point detection
 - [x] Framework detection (Next.js, React, Angular, Vue, SvelteKit, Expo, React Native, NestJS, Nuxt, Astro, Express, Fastify, Hono, Vite)
@@ -67,7 +67,7 @@ Single-threaded Node, no cache, cold start included (Windows 11, Ryzen 7 5700U):
 
 ## What's next (in public)
 
-- [ ] Routes view (Next.js/Express analyzers)
+- [ ] Express routes analyzer
 - [ ] Component tree view (React analyzer)
 - [ ] Database schema view (SQL/Prisma/Drizzle analyzers)
 - [ ] Code-splitting the visualizer bundle (currently 1.86 MB)

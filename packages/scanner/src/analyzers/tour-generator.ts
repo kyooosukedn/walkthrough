@@ -2,9 +2,9 @@ import type {
   CodeMap,
   TourDefinition,
   TourStep,
-  FileTreeNode,
   EntryPoint,
   ImportGraph,
+  Route,
   ProjectInfo,
   Analyzer,
 } from "../types.js";
@@ -67,6 +67,31 @@ function generateTour(project: ProjectInfo): TourDefinition {
       title: "Entry Points",
       description: `Key entry points in this codebase:\n\n${epDescriptions.slice(0, 5).join("\n")}${epDescriptions.length > 5 ? `\n...and ${epDescriptions.length - 5} more` : ""}`,
       focusNodeIds: [...epDirs],
+    });
+  }
+
+  // Step 3.5: Routes — pages and API endpoints
+  const routes: Route[] | undefined = (project as ProjectInfo & { _routes?: Route[] })._routes;
+  if (routes && routes.length > 0) {
+    const pages = routes.filter((r) => !r.file.includes("route.") && !r.file.includes("api"));
+    const apis = routes.filter((r) => r.file.includes("route.") || r.file.includes("api"));
+    const routeDirs = new Set<string>();
+    for (const r of routes) {
+      const topDir = r.file.split("/")[0];
+      if (topDirs.find((d) => d.name === topDir)) routeDirs.add(topDir);
+    }
+
+    const pageLines = pages.slice(0, 5).map((r) => `- \`${r.path}\``).join("\n");
+    const apiLines = apis.slice(0, 5).map((r) => `- \`${r.method} ${r.path}\``).join("\n");
+    const parts: string[] = [];
+    if (pages.length > 0) parts.push(`**${pages.length} page route${pages.length === 1 ? "" : "s"}**:\n${pageLines}${pages.length > 5 ? `\n...and ${pages.length - 5} more` : ""}`);
+    if (apis.length > 0) parts.push(`**${apis.length} API endpoint${apis.length === 1 ? "" : "s"}**:\n${apiLines}${apis.length > 5 ? `\n...and ${apis.length - 5} more` : ""}`);
+
+    steps.push({
+      id: "routes",
+      title: "Routes",
+      description: `How this app is addressed from the outside:\n\n${parts.join("\n\n")}`,
+      focusNodeIds: [...routeDirs],
     });
   }
 

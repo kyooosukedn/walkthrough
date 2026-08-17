@@ -9,6 +9,7 @@ import { TourSidebar } from "./tour/TourSidebar.js";
 import { NarrationPanel } from "./tour/NarrationPanel.js";
 import { TourEngine, type TourState } from "./tour/TourEngine.js";
 import { SystemOverview } from "./views/SystemOverview.js";
+import { RouteMap } from "./views/RouteMap.js";
 
 type AppMode = "welcome" | "tour" | "explore";
 
@@ -124,9 +125,13 @@ function AppContent() {
     >
       <ReactFlowProvider>
         <div style={{ position: "relative", width: "100%", height: "100%" }}>
-          <SystemOverview
-            tourState={isTourActive ? tourState : null}
-          />
+          {activeView === "routes" ? (
+            <RouteMap />
+          ) : (
+            <SystemOverview
+              tourState={isTourActive ? tourState : null}
+            />
+          )}
           {isTourActive && (
             <NarrationPanel engine={tourEngine!} state={tourState!} />
           )}
