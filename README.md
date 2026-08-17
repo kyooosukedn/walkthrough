@@ -10,7 +10,11 @@ npx github:kyooosukedn/walkthrough ./path/to/your/project
 
 Your browser opens. You press "Start Guided Tour". Nodes light up, connections flow, and the architecture walks past you step by step: entry points → routes → data model → core logic → data flow.
 
-## Why
+| Welcome | Tour start | Mid-tour |
+|---|---|---|
+| ![Welcome screen](docs/demo-01-welcome.webp) | ![Guided tour starting](docs/demo-02-tour-start.webp) | ![Tour in progress](docs/demo-03-tour-deep.webp) |
+
+*(Scanned project: a real 836-file / 131k-LOC Expo + legacy-Java codebase, 1.3 s scan.)*
 
 You've been there: first day on a codebase, 200 files, no map. READMEs describe what the product does, not how the code is shaped. Dependency graphs show everything and explain nothing.
 
