@@ -20,6 +20,7 @@ import { ImportGraphAnalyzer } from "./analyzers/imports.js";
 import { EntryPointAnalyzer } from "./analyzers/entry-points.js";
 import { TourGeneratorAnalyzer } from "./analyzers/tour-generator.js";
 import { NextJsRoutesAnalyzer } from "./analyzers/nextjs-routes.js";
+import { ReactComponentAnalyzer } from "./analyzers/react-components.js";
 
 /**
  * Scan a project and produce a CodeMap blueprint.
@@ -57,6 +58,12 @@ export async function scan(rootPath: string): Promise<CodeMap> {
   };
   const routesOutput = routesAnalyzer.detect(routesEnriched) ? await routesAnalyzer.analyze(routesEnriched) : undefined;
 
+  // Phase 3.5: Components (needs file tree + import graph)
+  const componentsAnalyzer = new ReactComponentAnalyzer();
+  const componentsOutput = componentsAnalyzer.detect(routesEnriched)
+    ? await componentsAnalyzer.analyze(routesEnriched)
+    : undefined;
+
   // Phase 4: Tour generator (needs all other outputs)
   const tourAnalyzer = new TourGeneratorAnalyzer();
   const enrichedProject: ProjectInfo & { _entryPoints?: EntryPoint[]; _imports?: ImportGraph; _frameworks?: string[]; _routes?: Route[] } = {
@@ -69,7 +76,10 @@ export async function scan(rootPath: string): Promise<CodeMap> {
   const tourOutput = await tourAnalyzer.analyze(enrichedProject);
 
   // Merge all outputs
-  return mergeOutputs(project, [treeOutput, importOutput, entryOutput, tourOutput, ...(routesOutput ? [routesOutput] : [])]);
+  const outputs: AnalyzerOutput[] = [treeOutput, importOutput, entryOutput, tourOutput];
+  if (routesOutput) outputs.push(routesOutput);
+  if (componentsOutput) outputs.push(componentsOutput);
+  return mergeOutputs(project, outputs);
 }
 
 /** Extract project metadata from the filesystem */
@@ -101,6 +111,7 @@ function mergeOutputs(project: ProjectInfo, outputs: AnalyzerOutput[]): CodeMap 
   let entryPoints: EntryPoint[] | undefined;
   let imports: ImportGraph | undefined;
   let routes: Route[] | undefined;
+  let components: CodeMap["components"];
   let tour: CodeMap["tour"];
 
   for (const output of outputs) {
@@ -109,6 +120,7 @@ function mergeOutputs(project: ProjectInfo, outputs: AnalyzerOutput[]): CodeMap 
     if (output.entryPoints) entryPoints = output.entryPoints;
     if (output.imports) imports = output.imports;
     if (output.routes) routes = output.routes;
+    if (output.components) components = output.components;
     if (output.tour) tour = output.tour;
   }
 
@@ -121,7 +133,7 @@ function mergeOutputs(project: ProjectInfo, outputs: AnalyzerOutput[]): CodeMap 
     stats,
   };
 
-  return { meta, fileTree, entryPoints, imports, routes, tour };
+  return { meta, fileTree, entryPoints, imports, routes, components, tour };
 }
 
 /** Detect frameworks from package.json dependencies (including workspace packages) */

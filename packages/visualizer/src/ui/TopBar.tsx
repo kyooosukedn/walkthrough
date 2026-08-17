@@ -13,6 +13,7 @@ interface TopBarProps {
 const VIEW_TABS = [
   { id: "overview", label: "Overview" },
   { id: "routes", label: "Routes" },
+  { id: "components", label: "Components" },
   { id: "flow", label: "Data Flow" },
   { id: "database", label: "Database" },
 ];

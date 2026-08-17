@@ -10,6 +10,7 @@ import { NarrationPanel } from "./tour/NarrationPanel.js";
 import { TourEngine, type TourState } from "./tour/TourEngine.js";
 import { SystemOverview } from "./views/SystemOverview.js";
 import { RouteMap } from "./views/RouteMap.js";
+import { ComponentTree } from "./views/ComponentTree.js";
 
 type AppMode = "welcome" | "tour" | "explore";
 
@@ -127,6 +128,8 @@ function AppContent() {
         <div style={{ position: "relative", width: "100%", height: "100%" }}>
           {activeView === "routes" ? (
             <RouteMap />
+          ) : activeView === "components" ? (
+            <ComponentTree />
           ) : (
             <SystemOverview
               tourState={isTourActive ? tourState : null}

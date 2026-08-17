@@ -47,13 +47,14 @@ export class FileTreeAnalyzer implements Analyzer {
 /** Recursively walk a directory and build the tree */
 async function walkDir(rootPath: string, currentPath: string): Promise<FileTreeNode> {
   const name = basename(currentPath);
-  const relPath = relative(rootPath, currentPath) || ".";
+  // The contract is forward-slash paths on every platform — downstream
+  // analyzers and the import graph key on them.
+  const relPath = (relative(rootPath, currentPath) || ".").replace(/\\/g, "/");
   const s = await stat(currentPath);
 
   if (!s.isDirectory()) {
     return { name, path: relPath, type: "file", size: s.size, extension: extname(name) || undefined };
   }
-
   const entries = await readdir(currentPath, { withFileTypes: true });
   const children: FileTreeNode[] = [];
 
