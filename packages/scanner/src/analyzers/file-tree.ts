@@ -1,5 +1,5 @@
 import { extname, join, relative, basename } from "node:path";
-import { readdir, stat } from "node:fs/promises";
+import { readdir, stat, readFile } from "node:fs/promises";
 
 import type { FileTreeNode, ProjectInfo, Analyzer, CodeMapStats } from "../types.js";
 
@@ -39,7 +39,7 @@ export class FileTreeAnalyzer implements Analyzer {
 
   async analyze(project: ProjectInfo): Promise<{ fileTree: FileTreeNode; stats: CodeMapStats }> {
     const tree = await walkDir(project.rootPath, project.rootPath);
-    const stats = countNodes(tree);
+    const stats = await countNodes(project.rootPath, tree);
     return { fileTree: tree, stats };
   }
 }
@@ -76,19 +76,42 @@ async function walkDir(rootPath: string, currentPath: string): Promise<FileTreeN
   return { name, path: relPath, type: "directory", children };
 }
 
-/** Count files and directories in the tree */
-function countNodes(tree: FileTreeNode): CodeMapStats {
+/** Count files, directories, and total lines in the tree */
+async function countNodes(rootPath: string, tree: FileTreeNode): Promise<CodeMapStats> {
   let files = 0;
   let directories = 0;
+  let totalLines = 0;
 
-  (function walk(node: FileTreeNode) {
+  const TEXT_EXTS = new Set([
+    ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs",
+    ".css", ".scss", ".less", ".html",
+    ".json", ".yaml", ".yml", ".toml",
+    ".md", ".txt", ".env",
+    ".py", ".rb", ".go", ".rs", ".java",
+    ".sql", ".graphql", ".prisma",
+  ]);
+
+  async function walk(node: FileTreeNode) {
     if (node.type === "file") {
       files++;
+      const ext = node.extension?.toLowerCase() ?? "";
+      if (TEXT_EXTS.has(ext)) {
+        try {
+          const content = await readFile(join(rootPath, node.path), "utf-8");
+          totalLines += content.split("\n").length;
+        } catch {
+          // Binary or unreadable — skip
+        }
+      }
     } else {
       directories++;
-      node.children?.forEach(walk);
+      for (const child of node.children ?? []) {
+        await walk(child);
+      }
     }
-  })(tree);
+  }
 
-  return { files, directories, totalLines: 0 };
+  await walk(tree);
+
+  return { files, directories, totalLines };
 }

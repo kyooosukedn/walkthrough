@@ -1,10 +1,31 @@
-import { Search, Sliders } from "lucide-react";
+import { Search, Sliders, Play, X } from "lucide-react";
 
 interface TopBarProps {
   activeView?: string;
+  onViewChange?: (view: string) => void;
+  isTourActive?: boolean;
+  onStartTour?: () => void;
+  onStopTour?: () => void;
+  hasTour?: boolean;
+  meta?: { name: string; frameworks: Array<{ name: string }> };
 }
 
-export function TopBar({ activeView = "overview" }: TopBarProps) {
+const VIEW_TABS = [
+  { id: "overview", label: "Overview" },
+  { id: "routes", label: "Routes" },
+  { id: "flow", label: "Data Flow" },
+  { id: "database", label: "Database" },
+];
+
+export function TopBar({
+  activeView = "overview",
+  onViewChange,
+  isTourActive = false,
+  onStartTour,
+  onStopTour,
+  hasTour = false,
+  meta,
+}: TopBarProps) {
   return (
     <div
       style={{
@@ -14,12 +35,12 @@ export function TopBar({ activeView = "overview" }: TopBarProps) {
         padding: "0 16px",
         background: "var(--bg-elevated)",
         borderBottom: "1px solid var(--border)",
-        gap: 16,
+        gap: 8,
         zIndex: 10,
       }}
     >
       {/* Logo */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginRight: 8 }}>
         <span style={{ color: "var(--accent-primary)", fontSize: 18 }}>◆</span>
         <span
           style={{
@@ -29,15 +50,31 @@ export function TopBar({ activeView = "overview" }: TopBarProps) {
             color: "var(--text)",
           }}
         >
-          CodeMap
+          Walkthrough
         </span>
+        {meta && (
+          <span
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 12,
+              color: "var(--text-dim)",
+              marginLeft: 4,
+            }}
+          >
+            {meta.name}
+          </span>
+        )}
       </div>
 
+      {/* Separator */}
+      <div style={{ width: 1, height: 24, background: "var(--border)" }} />
+
       {/* View tabs */}
-      <div style={{ display: "flex", gap: 4, marginLeft: 24 }}>
+      <div style={{ display: "flex", gap: 2 }}>
         {VIEW_TABS.map((tab) => (
           <button
             key={tab.id}
+            onClick={() => onViewChange?.(tab.id)}
             style={{
               padding: "6px 12px",
               borderRadius: 6,
@@ -63,6 +100,53 @@ export function TopBar({ activeView = "overview" }: TopBarProps) {
       {/* Spacer */}
       <div style={{ flex: 1 }} />
 
+      {/* Tour button */}
+      {hasTour && !isTourActive && onStartTour && (
+        <button
+          onClick={onStartTour}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "6px 14px",
+            borderRadius: 6,
+            border: "1px solid var(--accent-secondary)",
+            background: "transparent",
+            color: "var(--accent-secondary)",
+            fontFamily: "var(--font-body)",
+            fontSize: 13,
+            fontWeight: 500,
+            cursor: "pointer",
+            transition: "all 150ms ease",
+          }}
+        >
+          <Play size={14} /> Tour
+        </button>
+      )}
+
+      {isTourActive && onStopTour && (
+        <button
+          onClick={onStopTour}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "6px 14px",
+            borderRadius: 6,
+            border: "1px solid var(--accent-route)",
+            background: "transparent",
+            color: "var(--accent-route)",
+            fontFamily: "var(--font-body)",
+            fontSize: 13,
+            fontWeight: 500,
+            cursor: "pointer",
+            transition: "all 150ms ease",
+          }}
+        >
+          <X size={14} /> End Tour
+        </button>
+      )}
+
       {/* Actions */}
       <button style={iconBtnStyle}>
         <Search size={16} />
@@ -73,13 +157,6 @@ export function TopBar({ activeView = "overview" }: TopBarProps) {
     </div>
   );
 }
-
-const VIEW_TABS = [
-  { id: "overview", label: "Overview" },
-  { id: "routes", label: "Routes" },
-  { id: "flow", label: "Data Flow" },
-  { id: "database", label: "Database" },
-];
 
 const iconBtnStyle: React.CSSProperties = {
   display: "flex",

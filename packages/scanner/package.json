@@ -1,5 +1,5 @@
 {
-  "name": "@codemap/scanner",
+  "name": "@walkthrough/scanner",
   "version": "0.1.0",
   "description": "Codebase analyzer that produces codemap.json",
   "type": "module",

@@ -6,7 +6,7 @@ import { createServer } from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import { exec } from "node:child_process";
 
-import { scan, writeCodeMap } from "@codemap/scanner";
+import { scan, writeCodeMap } from "@walkthrough/scanner";
 
 const args = process.argv.slice(2);
 
@@ -45,7 +45,7 @@ main().catch((err) => {
 });
 
 async function main() {
-  console.log(`◆ CodeMap — scanning ${targetPath}`);
+  console.log(`◆ Walkthrough — scanning ${targetPath}`);
 
   // Scan
   const codemap = await scan(targetPath);
@@ -161,11 +161,11 @@ function open(url: string) {
 // ─── Help ────────────────────────────────────────────────────
 function printHelp() {
   console.log(`
-◆ CodeMap — understand any codebase in 5 minutes
+◆ Walkthrough — understand any codebase in 5 minutes
 
 Usage:
-  codemap [path]        Scan a project and open visualizer
-  codemap .             Scan current directory
+  walkthrough [path]     Scan a project and open visualizer
+  walkthrough .          Scan current directory
 
 Options:
   --json                Output codemap.json to stdout
@@ -175,8 +175,8 @@ Options:
   -h, --help            Show this help
 
 Examples:
-  npx codemap ./my-project
-  npx codemap ./my-project --json > map.json
-  npx codemap ./my-project --port 8080
+  npx walkthrough-cli ./my-project
+  npx walkthrough-cli ./my-project --json > map.json
+  npx walkthrough-cli ./my-project --port 8080
 `);
 }

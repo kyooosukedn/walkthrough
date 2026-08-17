@@ -1,5 +1,5 @@
 /**
- * CodeMap types — mirror of @codemap/scanner types.
+ * Walkthrough types — mirror of @walkthrough/scanner types.
  * The visualizer does NOT depend on the scanner package.
  * codemap.json is the contract between them.
  */

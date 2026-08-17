@@ -1,5 +1,5 @@
 /**
- * @codemap/scanner
+ * @walkthrough/scanner
  *
  * Analyzes codebases and produces codemap.json blueprints.
  */

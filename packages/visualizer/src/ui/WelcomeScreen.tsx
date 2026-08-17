@@ -67,7 +67,7 @@ export function WelcomeScreen({ meta, onStartTour, onExplore, hasTour }: Welcome
               color: "var(--text)",
             }}
           >
-            CodeMap
+            Walkthrough
           </span>
         </div>
 

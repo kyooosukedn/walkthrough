@@ -1,24 +1,40 @@
-import { useState, useEffect } from "react";
-import type { Node, Edge } from "@xyflow/react";
+import { useState, useEffect, useCallback } from "react";
+import {
+  useNodesState,
+  useEdgesState,
+  type Node,
+  type Edge,
+} from "@xyflow/react";
 import { useCodeMap } from "../data/context.js";
 import { GraphCanvas } from "../graph/index.js";
 import { DefaultNode } from "../graph/nodes/DefaultNode.tsx";
 import { treeToGraph } from "./layout.js";
+import { useTourTransitions } from "../tour/useTourTransitions.js";
+import type { TourState } from "../tour/TourEngine.js";
 
 const nodeTypes = { "codemap-default": DefaultNode };
 
-export function SystemOverview() {
+interface SystemOverviewProps {
+  tourState?: TourState | null;
+}
+
+export function SystemOverview({ tourState }: SystemOverviewProps) {
   const { data, loading, error } = useCodeMap();
-  const [nodes, setNodes] = useState<Node[]>([]);
-  const [edges, setEdges] = useState<Edge[]>([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+  const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
-    if (!data?.fileTree) return;
+    if (!data?.fileTree || initialized) return;
     treeToGraph(data.fileTree).then(({ nodes: n, edges: e }) => {
       setNodes(n);
       setEdges(e);
+      setInitialized(true);
     });
-  }, [data]);
+  }, [data, initialized, setNodes, setEdges]);
+
+  // Apply tour transitions
+  useTourTransitions(tourState ?? null);
 
   if (loading) {
     return (
@@ -31,14 +47,20 @@ export function SystemOverview() {
   if (error) {
     return (
       <div style={{ ...centerStyle, flexDirection: "column", gap: 8 }}>
-        <span style={{ color: "var(--accent-route)" }}>⚠️ Failed to load codemap.json</span>
+        <span style={{ color: "var(--accent-route)" }}>Failed to load codemap.json</span>
         <span style={{ color: "var(--text-dim)", fontSize: 13 }}>{error}</span>
       </div>
     );
   }
 
   return (
-    <GraphCanvas nodes={nodes} edges={edges} nodeTypes={nodeTypes} />
+    <GraphCanvas
+      nodes={nodes}
+      edges={edges}
+      onNodesChange={onNodesChange}
+      onEdgesChange={onEdgesChange}
+      nodeTypes={nodeTypes}
+    />
   );
 }
 

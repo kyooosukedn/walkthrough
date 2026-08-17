@@ -1,98 +1,86 @@
-# ◆ CodeMap
+# ◆ Walkthrough
 
 **Understand any codebase in 5 minutes.**
 
-CodeMap scans your project and produces an interactive, animated, step-by-step architecture walkthrough. Not a static diagram. Not a dependency graph. A living guided tour.
-
-![dark mode](design-preview.html)
-
-## Quick Start
+Walkthrough scans a project and produces an interactive, animated, step-by-step architecture tour. Not a static diagram. Not a dependency graph. A guided walkthrough of how the codebase actually fits together.
 
 ```bash
-# Scan your project and open the visualizer
-npx codemap ./path/to/your/project
-
-# Or scan the current directory
-npx codemap
+npx github:kyooosukedn/walkthrough ./path/to/your/project
 ```
 
-## How It Works
+Your browser opens. You press "Start Guided Tour". Nodes light up, connections flow, and the architecture walks past you step by step: entry points → routes → data model → core logic → data flow.
+
+## Why
+
+You've been there: first day on a codebase, 200 files, no map. READMEs describe what the product does, not how the code is shaped. Dependency graphs show everything and explain nothing.
+
+Walkthrough is the tool I wished existed when opening an unfamiliar codebase for the first time. It's built for **humans learning a codebase** — onboarding, taking over a project, evaluating a repo before contributing.
+
+## How it works
 
 ```
-You run: npx codemap ./my-project
-         ↓
-Scanner reads your codebase (AST parsing, import analysis, route detection)
-         ↓
-Generates codemap.json (the blueprint — pure data, no code)
-         ↓
+You run:  walkthrough ./my-project
+              ↓
+Scanner reads your codebase (file tree, imports, entry points,
+framework detection — AST-level analysis, no execution)
+              ↓
+Generates codemap.json (pure data — the contract)
+              ↓
 Opens browser → interactive React app loads the blueprint
-         ↓
-Guided animated tour walks you through the architecture step by step
-         ↓
-Free explore mode when you're done with the tour
+              ↓
+Guided animated tour walks you through the architecture
 ```
 
-## Guided Tour
+Three packages, one contract:
 
-The killer feature. Press "Start Tour" and CodeMap walks you through:
+- **`@walkthrough/scanner`** — analyzes codebases, emits `codemap.json`. Usable standalone in CI or scripts.
+- **`@walkthrough/visualizer`** — data-driven React app (React Flow + elkjs). Renders any valid `codemap.json`, even hand-written.
+- **`walkthrough-cli`** — wires them together. One command, browser opens.
 
-1. **Welcome** — project overview, tech stack, purpose
-2. **Entry Points** — where everything starts
-3. **Auth Flow** — login → session → protected routes
-4. **API Layer** — endpoints, handlers, what they call
-5. **Data Model** — tables, relations, migrations
-6. **Core Logic** — business logic, data processing
-7. **External Services** — AI providers, payments, storage
-8. **Component Tree** — UI component hierarchy
-9. **Data Flow** — full request lifecycle animation
-10. **You Made It** — summary, stats, celebration 🎉
+The scanner and visualizer never speak directly. The JSON is the entire contract — versioned, progressive (a minimal file-tree-only map is valid), schema-typed on both sides.
 
-Each step animates. Nodes light up. Connections flow. You see the architecture breathe.
+## Performance
 
-## Views
+Single-threaded Node, no cache, cold start included (Windows 11, Ryzen 7 5700U):
 
-| View | Shows |
-|------|-------|
-| System Overview | High-level boxes with animated connections |
-| Route Map | Every API endpoint + page route |
-| Data Flow | Animated request lifecycle |
-| Database Schema | ER diagram from migrations/ORM |
-| Component Tree | React/Vue/Svelte hierarchy |
-| Service Map | External services and when they're called |
-| File Explorer | Interactive tree with metadata |
+| Project | Files | Lines | Scan time |
+|---|---|---|---|
+| Small Next.js app | 69 | 2,560 | 363 ms |
+| Go codebase | 224 | 52,190 | 483 ms |
+| Expo + legacy Java monorepo | 836 | 131,118 | 1,279 ms |
 
-## Architecture
+~1.5 s for 131k LOC. Import resolution handles relative paths, tsconfig `paths` aliases (`@/`-style, including commented JSONC tsconfigs), `export … from`, side-effect and dynamic imports.
 
-CodeMap is a monorepo with three packages:
+## What works today (v0.1)
 
-- **`@codemap/scanner`** — analyzes codebases, outputs `codemap.json`
-- **`@codemap/visualizer`** — React app that renders the blueprint
-- **`@codemap/cli`** — `npx codemap` entry point
+- [x] File tree + stats scanning
+- [x] Import graph with alias resolution
+- [x] Entry-point detection
+- [x] Framework detection (Next.js, React, Angular, Vue, SvelteKit, Expo, React Native, NestJS, Nuxt, Astro, Express, Fastify, Hono, Vite)
+- [x] Auto-generated guided tour with narration, camera moves, animated edges
+- [x] System overview view + free explore mode
+- [x] Served locally by the CLI; `--json` / `--no-serve` for scripting
 
-The `codemap.json` is the entire contract between scanner and visualizer. They never speak directly. This means:
+## What's next (in public)
 
-- The scanner can be used in CI pipelines without the visualizer
-- The visualizer can load hand-written or modified blueprints
-- Both can be versioned independently
+- [ ] Routes view (Next.js/Express analyzers)
+- [ ] Component tree view (React analyzer)
+- [ ] Database schema view (SQL/Prisma/Drizzle analyzers)
+- [ ] Code-splitting the visualizer bundle (currently 1.86 MB)
+- [ ] npm publish (`npx walkthrough`)
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full design.
+This repo is built in the open. See [DECISIONS.md](./DECISIONS.md) for the tradeoffs and rejected alternatives behind the current shape.
 
-## Status
+## Development
 
-**Pre-alpha.** Architecture and design are locked. Implementation starting.
-
-- [x] PRD
-- [x] Design system
-- [x] Architecture
-- [ ] Scanner (Phase 1: file tree, imports, Next.js routes)
-- [ ] Visualizer (Phase 1: system overview, tour engine)
-- [ ] CLI
-- [ ] Community analyzer plugin system
-- [ ] Framework support beyond Next.js
-
-## Contributing
-
-Not yet — but soon. Star the repo and watch for updates.
+```bash
+git clone https://github.com/kyooosukedn/walkthrough
+cd walkthrough
+npm install
+npm run build
+npm test
+node packages/cli/dist/index.js ./some-project
+```
 
 ## License
 
