@@ -11,6 +11,7 @@ import { TourEngine, type TourState } from "./tour/TourEngine.js";
 import { SystemOverview } from "./views/SystemOverview.js";
 import { RouteMap } from "./views/RouteMap.js";
 import { ComponentTree } from "./views/ComponentTree.js";
+import { DatabaseSchemaView } from "./views/DatabaseSchemaView.js";
 
 type AppMode = "welcome" | "tour" | "explore";
 
@@ -130,6 +131,8 @@ function AppContent() {
             <RouteMap />
           ) : activeView === "components" ? (
             <ComponentTree />
+          ) : activeView === "database" ? (
+            <DatabaseSchemaView />
           ) : (
             <SystemOverview
               tourState={isTourActive ? tourState : null}

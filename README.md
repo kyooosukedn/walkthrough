@@ -59,6 +59,7 @@ Single-threaded Node, no cache, cold start included (Windows 11, Ryzen 7 5700U):
 
 - [x] Routes view (Next.js App Router + Pages Router analyzers)
 - [x] Component tree view (React analyzer: PascalCase exports, pages, who-imports-whom)
+- [x] Database schema view (Prisma models + SQL migrations: tables, columns, FK relations, ER overview)
 - [x] Entry-point detection
 - [x] Framework detection (Next.js, React, Angular, Vue, SvelteKit, Expo, React Native, NestJS, Nuxt, Astro, Express, Fastify, Hono, Vite)
 - [x] Auto-generated guided tour with narration, camera moves, animated edges
@@ -66,8 +67,7 @@ Single-threaded Node, no cache, cold start included (Windows 11, Ryzen 7 5700U):
 - [x] Served locally by the CLI; `--json` / `--no-serve` for scripting
 
 ## What's next (in public)
-
-- [ ] Express routes analyzer
+- [x] Express routes analyzer *(shipped — merged into Routes view)*
 - [ ] Code-splitting the visualizer bundle (currently 1.86 MB)
 - [ ] npm publish (`npx walkthrough`)
 

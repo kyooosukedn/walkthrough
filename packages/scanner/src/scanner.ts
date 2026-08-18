@@ -21,6 +21,8 @@ import { EntryPointAnalyzer } from "./analyzers/entry-points.js";
 import { TourGeneratorAnalyzer } from "./analyzers/tour-generator.js";
 import { NextJsRoutesAnalyzer } from "./analyzers/nextjs-routes.js";
 import { ReactComponentAnalyzer } from "./analyzers/react-components.js";
+import { DatabaseAnalyzer } from "./analyzers/database.js";
+import { ExpressRoutesAnalyzer } from "./analyzers/express-routes.js";
 
 /**
  * Scan a project and produce a CodeMap blueprint.
@@ -58,10 +60,21 @@ export async function scan(rootPath: string): Promise<CodeMap> {
   };
   const routesOutput = routesAnalyzer.detect(routesEnriched) ? await routesAnalyzer.analyze(routesEnriched) : undefined;
 
+  // Express routes (merge into the same section when both frameworks appear)
+  const expressAnalyzer = new ExpressRoutesAnalyzer();
+  const expressOutput = expressAnalyzer.detect(project) ? await expressAnalyzer.analyze(routesEnriched) : undefined;
+  const mergedRoutes = [...(routesOutput?.routes ?? []), ...(expressOutput?.routes ?? [])];
+  const routesMerged = mergedRoutes.length > 0 ? { routes: mergedRoutes } : undefined;
+
   // Phase 3.5: Components (needs file tree + import graph)
   const componentsAnalyzer = new ReactComponentAnalyzer();
   const componentsOutput = componentsAnalyzer.detect(routesEnriched)
     ? await componentsAnalyzer.analyze(routesEnriched)
+    : undefined;
+  // Phase 3.6: Database (Prisma or SQL migrations; needs file tree only)
+  const databaseAnalyzer = new DatabaseAnalyzer();
+  const databaseOutput = databaseAnalyzer.detect(project)
+    ? await databaseAnalyzer.analyze(project)
     : undefined;
 
   // Phase 4: Tour generator (needs all other outputs)
@@ -71,14 +84,15 @@ export async function scan(rootPath: string): Promise<CodeMap> {
     _entryPoints: entryOutput.entryPoints,
     _imports: importOutput.imports,
     _frameworks: detectFrameworks(project).map((f) => f.name),
-    _routes: routesOutput?.routes,
+    _routes: routesMerged?.routes,
   };
   const tourOutput = await tourAnalyzer.analyze(enrichedProject);
 
   // Merge all outputs
   const outputs: AnalyzerOutput[] = [treeOutput, importOutput, entryOutput, tourOutput];
-  if (routesOutput) outputs.push(routesOutput);
+  if (routesMerged) outputs.push(routesMerged);
   if (componentsOutput) outputs.push(componentsOutput);
+  if (databaseOutput) outputs.push(databaseOutput);
   return mergeOutputs(project, outputs);
 }
 
@@ -112,6 +126,7 @@ function mergeOutputs(project: ProjectInfo, outputs: AnalyzerOutput[]): CodeMap 
   let imports: ImportGraph | undefined;
   let routes: Route[] | undefined;
   let components: CodeMap["components"];
+  let database: CodeMap["database"];
   let tour: CodeMap["tour"];
 
   for (const output of outputs) {
@@ -121,6 +136,7 @@ function mergeOutputs(project: ProjectInfo, outputs: AnalyzerOutput[]): CodeMap 
     if (output.imports) imports = output.imports;
     if (output.routes) routes = output.routes;
     if (output.components) components = output.components;
+    if (output.database) database = output.database;
     if (output.tour) tour = output.tour;
   }
 
@@ -133,7 +149,7 @@ function mergeOutputs(project: ProjectInfo, outputs: AnalyzerOutput[]): CodeMap 
     stats,
   };
 
-  return { meta, fileTree, entryPoints, imports, routes, components, tour };
+  return { meta, fileTree, entryPoints, imports, routes, components, database, tour };
 }
 
 /** Detect frameworks from package.json dependencies (including workspace packages) */
