@@ -11,6 +11,11 @@ npx walkthrough-cli ./path/to/your/project
 *(until the npm publish lands: `npx github:kyooosukedn/walkthrough`)*
 
 Your browser opens. You press "Start Guided Tour". Nodes light up, connections flow, and the architecture walks past you step by step: entry points → routes → data model → core logic → data flow.
+![Guided tour demo](docs/demo-tour.gif)
+
+*(Real run: a 573-file Next.js + Supabase project scanned in ~1.5 s — welcome, guided tour, then Routes / Components / Database views.)*
+
+Still frames:
 
 | Welcome | Tour start | Mid-tour |
 |---|---|---|
