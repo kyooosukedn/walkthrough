@@ -5,8 +5,10 @@
 Walkthrough scans a project and produces an interactive, animated, step-by-step architecture tour. Not a static diagram. Not a dependency graph. A guided walkthrough of how the codebase actually fits together.
 
 ```bash
-npx github:kyooosukedn/walkthrough ./path/to/your/project
+npx walkthrough-cli ./path/to/your/project
 ```
+
+*(until the npm publish lands: `npx github:kyooosukedn/walkthrough`)*
 
 Your browser opens. You press "Start Guided Tour". Nodes light up, connections flow, and the architecture walks past you step by step: entry points → routes → data model → core logic → data flow.
 

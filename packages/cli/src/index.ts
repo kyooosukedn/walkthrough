@@ -84,12 +84,11 @@ async function main() {
 async function serve(codemap: unknown, port: number) {
   const codemapJson = JSON.stringify(codemap, null, 2);
 
-  // Look for visualizer dist
-  const visualizerDir = resolve(
-    import.meta.dirname ?? ".",
-    "../../visualizer/dist",
-  );
-
+  // Prefer the visualizer bundled inside this package (published installs);
+  // fall back to the monorepo layout for development.
+  const bundled = resolve(import.meta.dirname ?? ".", "visualizer");
+  const devFallback = resolve(import.meta.dirname ?? ".", "../../visualizer/dist");
+  const visualizerDir = existsSync(join(bundled, "index.html")) ? bundled : devFallback;
   const hasVisualizer = existsSync(join(visualizerDir, "index.html"));
 
   const server = createServer(async (req, res) => {

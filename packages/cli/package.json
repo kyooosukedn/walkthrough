@@ -1,18 +1,41 @@
 {
   "name": "walkthrough-cli",
   "version": "0.1.0",
-  "description": "CLI entry point for CodeMap — scan codebases and open visualizer",
+  "description": "◆ Understand any codebase in 5 minutes — scan a project, get an interactive guided architecture tour in your browser",
   "type": "module",
   "bin": {
     "walkthrough": "./dist/index.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "scripts",
+    "README.md"
   ],
+  "keywords": [
+    "code-visualization",
+    "architecture",
+    "codebase-understanding",
+    "onboarding",
+    "dependency-graph",
+    "developer-tools",
+    "static-analysis",
+    "nextjs",
+    "react"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kyooosukedn/walkthrough.git"
+  },
+  "author": "Daniel Purnomo",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/kyooosukedn/walkthrough/issues"
+  },
+  "homepage": "https://github.com/kyooosukedn/walkthrough#readme",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node scripts/bundle-visualizer.mjs",
     "typecheck": "tsc --noEmit",
-    "clean": "rm -rf dist"
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
   },
   "dependencies": {
     "@walkthrough/scanner": "^0.1.0"

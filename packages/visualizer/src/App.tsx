@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, lazy, Suspense } from "react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { CodeMapProvider, useCodeMap } from "./data/context.js";
 import { Layout } from "./ui/Layout.js";
@@ -8,10 +8,13 @@ import { WelcomeScreen } from "./ui/WelcomeScreen.js";
 import { TourSidebar } from "./tour/TourSidebar.js";
 import { NarrationPanel } from "./tour/NarrationPanel.js";
 import { TourEngine, type TourState } from "./tour/TourEngine.js";
-import { SystemOverview } from "./views/SystemOverview.js";
-import { RouteMap } from "./views/RouteMap.js";
-import { ComponentTree } from "./views/ComponentTree.js";
-import { DatabaseSchemaView } from "./views/DatabaseSchemaView.js";
+
+// Graph views pull heavy deps (React Flow, elkjs, framer-motion) — the
+// welcome screen ships without them, so first paint stays small.
+const SystemOverview = lazy(() => import("./views/SystemOverview.js").then((m) => ({ default: m.SystemOverview })));
+const RouteMap = lazy(() => import("./views/RouteMap.js").then((m) => ({ default: m.RouteMap })));
+const ComponentTree = lazy(() => import("./views/ComponentTree.js").then((m) => ({ default: m.ComponentTree })));
+const DatabaseSchemaView = lazy(() => import("./views/DatabaseSchemaView.js").then((m) => ({ default: m.DatabaseSchemaView })));
 
 type AppMode = "welcome" | "tour" | "explore";
 
@@ -127,17 +130,19 @@ function AppContent() {
     >
       <ReactFlowProvider>
         <div style={{ position: "relative", width: "100%", height: "100%" }}>
-          {activeView === "routes" ? (
-            <RouteMap />
-          ) : activeView === "components" ? (
-            <ComponentTree />
-          ) : activeView === "database" ? (
-            <DatabaseSchemaView />
-          ) : (
-            <SystemOverview
-              tourState={isTourActive ? tourState : null}
-            />
-          )}
+          <Suspense fallback={<div style={{ ...fullScreenStyle, color: "var(--text-muted)" }}>Loading view…</div>}>
+            {activeView === "routes" ? (
+              <RouteMap />
+            ) : activeView === "components" ? (
+              <ComponentTree />
+            ) : activeView === "database" ? (
+              <DatabaseSchemaView />
+            ) : (
+              <SystemOverview
+                tourState={isTourActive ? tourState : null}
+              />
+            )}
+          </Suspense>
           {isTourActive && (
             <NarrationPanel engine={tourEngine!} state={tourState!} />
           )}
