@@ -1,0 +1,4 @@
+session_id,date,repo,participant_label,oss_experience,t01_locate_unaided,t02_plan_unaided,t03_first_edit_unaided,t11_locate_path,t12_first_edit_path,t13_check_run,exercise_outcome,steps_used,stale_links,confusion_quotes,tools_phase_a,would_use_again,env_issues,notes
+S01,,,,vueuse,,,,,,,,,,,,,,
+S02,,,,storybook,,,,,,,,,,,,,,
+S03,,,,medusa,,,,,,,,,,,,,,
