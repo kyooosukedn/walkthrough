@@ -1,0 +1,50 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Why promotion edit errors disappear",
+  "description": "A seven-step source path through Medusa's admin UI. Follow the request, predict the failure, then make one small edit.",
+  "ref": "a9c14c09727d47440b2e6c9edda84b60f165a4d2",
+  "steps": [
+    {
+      "file": "packages/admin/dashboard/src/dashboard-app/routes/get-route.map.tsx",
+      "line": 540,
+      "title": "1. Find the edit screen",
+      "description": "The dashboard route map loads promotion-edit-details for the promotions edit route. This is the entry point for this UI path. Follow the imported module next. **Question:** which URL segment selects the edit screen?"
+    },
+    {
+      "file": "packages/admin/dashboard/src/routes/promotions/promotion-edit-details/promotion-edit-details.tsx",
+      "line": 26,
+      "title": "2. Find the form",
+      "description": "PromotionEditDetails loads the promotion and renders EditPromotionDetailsForm inside a drawer. The form owns the submit action; the route component does not save anything itself. **Question:** what must be true before the form renders?"
+    },
+    {
+      "file": "packages/admin/dashboard/src/routes/promotions/promotion-edit-details/components/edit-promotion-form/edit-promotion-details-form.tsx",
+      "line": 73,
+      "title": "3. Separate client validation from save",
+      "description": "handleSubmit converts the value and sets a form error for an invalid number before it calls the server. A valid number can still be rejected by the API. **Question:** which line makes the network mutation?"
+    },
+    {
+      "file": "packages/admin/dashboard/src/routes/promotions/promotion-edit-details/components/edit-promotion-form/edit-promotion-details-form.tsx",
+      "line": 95,
+      "title": "4. Spot the missing failure response",
+      "description": "The mutateAsync options handle success by closing the drawer. They contain no onError callback or toast, so a server rejection gives the user no visible feedback here. **Predict before editing:** what will the user see after a 422 response?"
+    },
+    {
+      "file": "packages/admin/dashboard/src/hooks/api/promotions.tsx",
+      "line": 215,
+      "title": "5. Trace the API call",
+      "description": "useUpdatePromotion wraps sdk.admin.promotion.update in a TanStack Query mutation. Its error type is FetchError; this hook does not display a toast for callers. **Question:** which layer should present an edit-form error to the user?"
+    },
+    {
+      "file": "packages/admin/dashboard/src/routes/products/product-edit/components/edit-product-form/edit-product-form.tsx",
+      "line": 77,
+      "title": "6. Learn the house pattern",
+      "description": "The product edit form uses onError: (e) => toast.error(e.message) beside its success handler. Compare its toast import at line 1 with the promotion form. **Question:** what is the smallest analogous change in the promotion form?"
+    },
+    {
+      "file": "packages/admin/dashboard/src/routes/promotions/promotion-edit-details/components/edit-promotion-form/edit-promotion-details-form.tsx",
+      "line": 95,
+      "title": "7. Make and check one change",
+      "description": "Add toast to the @medusajs/ui import and an onError callback beside onSuccess, following the product form. If dependencies are installed, run yarn workspace @medusajs/dashboard typecheck from the repo root. In this disposable checkout they are not installed, so first run git diff --check and inspect the new import and callback; those checks do not prove runtime behavior. A running admin UI is needed to confirm the toast appears on an actual failed request. **Explain back:** route → form → mutation hook → SDK; where was user feedback missing?"
+    }
+  ]
+}
