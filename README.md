@@ -1,8 +1,8 @@
 # ◆ Walkthrough
 
-**Understand any codebase in 5 minutes.**
+**Find your way into an unfamiliar codebase.**
 
-Walkthrough scans a project and produces an interactive, animated, step-by-step architecture tour. Not a static diagram. Not a dependency graph. A guided walkthrough of how the codebase actually fits together.
+Walkthrough scans a local checkout and shows its docs, manifests, tests, source roots, likely entry files, and file search. Open a file in the read-only preview, or explore the existing architecture map and tour. Language-specific analysis adds routes, components, and database views when supported.
 
 ```bash
 npx walkthrough-cli ./path/to/your/project
@@ -10,7 +10,7 @@ npx walkthrough-cli ./path/to/your/project
 
 *(until the npm publish lands: `npx github:kyooosukedn/walkthrough`)*
 
-Your browser opens. You press "Start Guided Tour". Nodes light up, connections flow, and the architecture walks past you step by step: entry points → routes → data model → core logic → data flow.
+Your browser opens to a repo orientation screen. Pick a real file or search by path. The architecture tour remains available as an optional view.
 ![Guided tour demo](docs/demo-tour.gif)
 
 *(Real run: a 573-file Next.js + Supabase project scanned in ~1.5 s — welcome, guided tour, then Routes / Components / Database views.)*
@@ -33,7 +33,7 @@ Walkthrough is the tool I wished existed when opening an unfamiliar codebase for
 You run:  walkthrough ./my-project
               ↓
 Scanner reads your codebase (file tree, imports, entry points,
-framework detection — AST-level analysis, no execution)
+framework detection — static file analysis, no execution)
               ↓
 Generates codemap.json (pure data — the contract)
               ↓
@@ -44,9 +44,9 @@ Guided animated tour walks you through the architecture
 
 Three packages, one contract:
 
-- **`@walkthrough/scanner`** — analyzes codebases, emits `codemap.json`. Usable standalone in CI or scripts.
+- **`@walkthrough/scanner`** — scans a codebase and emits `codemap.json`. Usable standalone in CI or scripts.
 - **`@walkthrough/visualizer`** — data-driven React app (React Flow + elkjs). Renders any valid `codemap.json`, even hand-written.
-- **`walkthrough-cli`** — wires them together. One command, browser opens.
+- **`walkthrough-cli`** — wires them together and serves a contained, read-only source preview on loopback. One command, browser opens.
 
 The scanner and visualizer never speak directly. The JSON is the entire contract — versioned, progressive (a minimal file-tree-only map is valid), schema-typed on both sides.
 
@@ -64,6 +64,9 @@ Single-threaded Node, no cache, cold start included (Windows 11, Ryzen 7 5700U):
 
 ## What works today (v0.1)
 
+- [x] Universal repo orientation: docs, manifests, tests, source roots, and filename search
+- [x] Read-only preview of scanned UTF-8 files on the local CLI server
+- [x] Conventional Python, Go, and Rust entry-file suggestions
 - [x] Routes view (Next.js App Router + Pages Router analyzers)
 - [x] Component tree view (React analyzer: PascalCase exports, pages, who-imports-whom)
 - [x] Database schema view (Prisma models + SQL migrations: tables, columns, FK relations, ER overview)
@@ -79,6 +82,8 @@ Single-threaded Node, no cache, cold start included (Windows 11, Ryzen 7 5700U):
 - [ ] npm publish (`npx walkthrough`)
 
 This repo is built in the open. See [DECISIONS.md](./DECISIONS.md) for the tradeoffs and rejected alternatives behind the current shape.
+
+For a source-level tour of the current implementation, see [Codebase guide](./docs/CODEBASE_GUIDE.md). [ARCHITECTURE.md](./ARCHITECTURE.md) is an earlier design proposal; it describes capabilities that have not all shipped.
 
 ## Development
 

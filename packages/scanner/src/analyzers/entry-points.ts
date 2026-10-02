@@ -24,6 +24,9 @@ const FILE_PATTERNS: Array<{
   { match: /^main\.(tsx|jsx|ts|js)$/, type: "server", maxDepth: 2 },
   { match: /^index\.(tsx|jsx|ts|js)$/, type: "server", maxDepth: 1 },
   { match: /^app\.(tsx|jsx|ts|js)$/, type: "server", maxDepth: 1 },
+  { match: /^(__main__|main|app|manage)\.py$/, type: "server", maxDepth: 3 },
+  { match: /^main\.go$/, type: "cli", maxDepth: 3 },
+  { match: /^main\.rs$/, type: "cli", maxDepth: 2 },
 ];
 
 export class EntryPointAnalyzer implements Analyzer {
@@ -62,6 +65,7 @@ export class EntryPointAnalyzer implements Analyzer {
 
       for (const pattern of FILE_PATTERNS) {
         if (pattern.match.test(name)) {
+          if (/^(page|layout|route)\./.test(name) && !relPath.split("/").includes("app")) continue;
           if (pattern.maxDepth !== undefined && depth > pattern.maxDepth) continue;
 
           // Skip barrel exports in subdirectories
@@ -100,7 +104,7 @@ async function collectSourceFiles(root: string, current: string): Promise<string
       files.push(...await collectSourceFiles(root, fullPath));
     } else {
       const ext = extname(entry.name);
-      if ([".ts", ".tsx", ".js", ".jsx"].includes(ext)) {
+      if ([".ts", ".tsx", ".js", ".jsx", ".py", ".go", ".rs"].includes(ext)) {
         files.push(relative(root, fullPath).replace(/\\/g, "/"));
       }
     }
