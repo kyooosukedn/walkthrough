@@ -7,14 +7,14 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build --workspaces",
-    "build:scanner": "npm run build --workspace=@codemap/scanner",
-    "build:visualizer": "npm run build --workspace=@codemap/visualizer",
-    "build:cli": "npm run build --workspace=@codemap/cli",
-    "dev": "npm run dev --workspace=@codemap/visualizer",
+    "build": "npm run build:scanner && npm run build:visualizer && npm run build:cli",
+    "build:scanner": "npm run build --workspace=@walkthrough/scanner",
+    "build:visualizer": "npm run build --workspace=@walkthrough/visualizer",
+    "build:cli": "npm run build --workspace=walkthrough-cli",
+    "dev": "npm run dev --workspace=@walkthrough/visualizer",
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
+    "test": "npm run test --workspace=@walkthrough/scanner && npm run build:cli && node --test packages/cli/dist/source.test.js",
     "clean": "npm run clean --workspaces --if-present && rm -rf node_modules"
   },
   "engines": {

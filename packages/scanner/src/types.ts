@@ -20,6 +20,15 @@ export interface CodeMap {
   services?: Service[];
   imports?: ImportGraph;
   tour?: TourDefinition;
+  orientation?: RepoOrientation;
+}
+
+/** Source-backed locations useful before language-specific analysis. */
+export interface RepoOrientation {
+  docs: string[];
+  manifests: string[];
+  tests: string[];
+  sourceRoots: string[];
 }
 
 // ─── Meta ────────────────────────────────────────────────────
@@ -208,6 +217,7 @@ export type AnalyzerOutput = {
   services?: Service[];
   imports?: ImportGraph;
   tour?: TourDefinition;
+  orientation?: RepoOrientation;
 };
 
 export interface ProjectInfo {
@@ -228,4 +238,4 @@ export interface ViewPlugin {
 }
 
 /** Current schema version */
-export const SCHEMA_VERSION = "1.0.0";
+export const SCHEMA_VERSION = "1.1.0";
