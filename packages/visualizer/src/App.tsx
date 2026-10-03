@@ -1,10 +1,11 @@
-import { useState, useCallback, useEffect, lazy, Suspense } from "react";
+import { useState, useCallback, lazy, Suspense } from "react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { CodeMapProvider, useCodeMap } from "./data/context.js";
 import { Layout } from "./ui/Layout.js";
 import { TopBar } from "./ui/TopBar.js";
 import { Sidebar } from "./ui/Sidebar.js";
 import { WelcomeScreen } from "./ui/WelcomeScreen.js";
+import { SourcePreview } from "./ui/SourcePreview.js";
 import { TourSidebar } from "./tour/TourSidebar.js";
 import { NarrationPanel } from "./tour/NarrationPanel.js";
 import { TourEngine, type TourState } from "./tour/TourEngine.js";
@@ -33,6 +34,12 @@ function AppContent() {
   const [tourEngine, setTourEngine] = useState<TourEngine | null>(null);
   const [tourState, setTourState] = useState<TourState | null>(null);
   const [sourcePath, setSourcePath] = useState<string | null>(null);
+  const [sourceLine, setSourceLine] = useState<number | undefined>();
+  const openSource = useCallback((path: string, line?: number) => {
+    setSourcePath(path);
+    setSourceLine(line);
+    setMode("source");
+  }, []);
 
   const handleStartTour = useCallback(() => {
     if (!data?.tour) return;
@@ -94,7 +101,7 @@ function AppContent() {
   if (!data) return null;
 
   if (mode === "source" && sourcePath) {
-    return <SourcePreview path={sourcePath} onBack={() => setMode("welcome")} />;
+    return <SourcePreview path={sourcePath} line={sourceLine} onBack={() => setMode("welcome")} onOpenSource={openSource} />;
   }
 
   // Welcome screen
@@ -104,7 +111,7 @@ function AppContent() {
         data={data}
         onStartTour={handleStartTour}
         onExplore={handleExplore}
-        onOpenSource={(path) => { setSourcePath(path); setMode("source"); }}
+        onOpenSource={openSource}
         hasTour={!!data.tour && data.tour.steps.length > 0}
       />
     );
@@ -156,27 +163,6 @@ function AppContent() {
       </ReactFlowProvider>
     </Layout>
   );
-}
-
-function SourcePreview({ path, onBack }: { path: string; onBack: () => void }) {
-  const [source, setSource] = useState<string | null>(null);
-  const [sourceError, setSourceError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setSource(null);
-    setSourceError(null);
-    const controller = new AbortController();
-    fetch(`/source?path=${encodeURIComponent(path)}`, { signal: controller.signal })
-      .then(async (response) => {
-        const body = await response.text();
-        if (!response.ok || !response.headers.get("content-type")?.includes("text/plain")) throw new Error(response.ok ? "Source preview needs the Walkthrough CLI server." : body);
-        setSource(body);
-      })
-      .catch((error) => { if (error.name !== "AbortError") setSourceError(error.message); });
-    return () => controller.abort();
-  }, [path]);
-
-  return <main className="source-preview"><header><button onClick={onBack}>← Repo overview</button><strong>{path}</strong></header>{sourceError ? <p role="alert">{sourceError}</p> : source === null ? <p>Loading source…</p> : <pre><code>{source}</code></pre>}</main>;
 }
 
 const fullScreenStyle: React.CSSProperties = {
