@@ -8,7 +8,7 @@
 
 **Architecture:** The existing local CLI builds a small, validated evidence bundle from scanned files. An on-demand loopback endpoint sends that bundle to an AI provider and validates citation paths and lines. The existing source preview gains a side panel for the explanation and file navigation.
 
-**Tech Stack:** Node.js, TypeScript, React, Node test runner, official Anthropic SDK. No new front-end package or index/database.
+**Tech Stack:** Node.js, TypeScript, React, Node test runner, DeepSeek JSON chat API through native `fetch`. No new front-end package or index/database.
 
 **Spec:** `docs/product/file-first-ai-explanation.md`
 
@@ -84,11 +84,11 @@ export interface ExplanationProvider {
 }
 ```
 
-Use the official Anthropic SDK with a structured tool schema for `FileExplanation`; configure key server-side from `ANTHROPIC_API_KEY` and model from `WALKTHROUGH_AI_MODEL` or `ANTHROPIC_DEFAULT_SONNET_MODEL`. Do not make a provider call when either is absent. Use bounded output tokens and a request timeout. The provider prompt asks for junior-friendly purpose, architecture role, data flow, related files, a small exercise, and explicit unknowns. The handler validates all citation paths and line ranges against the evidence bundle and drops or rejects invalid links rather than rendering them as facts.
+Provider correction after implementation: use DeepSeek's JSON chat API with `DEEPSEEK_API_KEY` and `deepseek-flash` by default (`DEEPSEEK_MODEL` overrides it). Do not make a provider call when the key is absent. Use bounded output tokens and a request timeout. The provider prompt asks for junior-friendly purpose, architecture role, data flow, related files, a small exercise, and explicit unknowns. The handler validates all citation paths and line ranges against the evidence bundle and drops or rejects invalid links rather than rendering them as facts.
 
 `POST /explain` accepts only `application/json` with `{ "path": "relative/scanned/file" }` and a small body limit. Reject browser origins outside the server's loopback URL and never add permissive CORS headers. Return JSON on success and safe error text on failure; do not echo prompts, keys, or source in errors. Run at most one model request per server instance at a time for the first pilot.
 
-- [ ] Add `@anthropic-ai/sdk` to the CLI workspace with npm. Record resolved version in the lockfile.
+- [ ] Use native `fetch` for DeepSeek and keep the CLI free of a provider SDK dependency.
 - [ ] Write tests with a fake `ExplanationProvider`: successful explanation, missing key/model, invalid JSON/body, foreign origin, refused secret path, provider failure, and fabricated citation. A spy must assert zero provider calls for rejected requests.
 - [ ] Run `npm run build:cli` and the new handler test; confirm expected failures before implementation.
 - [ ] Implement the provider adapter, citation validator, and endpoint. Keep HTTP plumbing separate from the SDK call so tests never use the network.

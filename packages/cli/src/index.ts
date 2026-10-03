@@ -9,7 +9,7 @@ import { exec } from "node:child_process";
 import { scan, writeCodeMap } from "@walkthrough/scanner";
 import { readSource, SourceError } from "./source.js";
 import { createExplainHandler } from "./explain/handler.js";
-import { createAnthropicProviderFromEnv } from "./explain/provider.js";
+import { createDeepSeekProviderFromEnv } from "./explain/provider.js";
 
 const args = process.argv.slice(2);
 
@@ -96,7 +96,7 @@ async function serve(codemap: Awaited<ReturnType<typeof scan>>, port: number) {
     rootPath: targetPath,
     allowedPaths,
     imports: codemap.imports,
-    provider: createAnthropicProviderFromEnv(),
+    provider: createDeepSeekProviderFromEnv(),
   });
 
   // Prefer the visualizer bundled inside this package (published installs);

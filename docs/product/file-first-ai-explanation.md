@@ -18,9 +18,9 @@ The AI receives numbered lines and returns structured sections with file/line ci
 
 ## AI boundary
 
-Use an on-demand `POST /explain` endpoint on the loopback CLI server. Keep API credentials server-side. For the first working provider, use the maintained official Anthropic SDK behind a small local provider interface; this machine has `ANTHROPIC_API_KEY` configured and the user previously asked about Claude. The model is configurable through `WALKTHROUGH_AI_MODEL` (or the existing Anthropic Sonnet model environment setting). Do not read or send source until the user clicks **Explain this file**. Do not log source, prompts, keys, or model output. Cap response tokens and request time. Reject cross-origin browser requests and non-JSON bodies.
+Use an on-demand `POST /explain` endpoint on the loopback CLI server. Keep API credentials server-side. The provider uses DeepSeek's OpenAI-compatible chat endpoint with native `fetch`, `DEEPSEEK_API_KEY`, and the `deepseek-flash` model by default (`DEEPSEEK_MODEL` can override it). Do not read or send source until the user clicks **Explain this file**. Do not log source, prompts, keys, or model output. Cap response tokens and request time. Reject cross-origin browser requests and non-JSON bodies.
 
-This provider choice is proposed for the pilot, not a requirement that every future user use Claude. The provider interface should allow another service later. A local model is not installed here. Spawning a general coding agent would give the feature broader filesystem and tool access than the explanation needs, so the first slice uses a narrow SDK call instead.
+DeepSeek is the provider for this pilot. The provider interface still allows another service later. A local model is not installed here. Spawning a general coding agent would give the feature broader filesystem and tool access than the explanation needs, so the first slice uses a narrow HTTP call instead.
 
 ## Acceptance
 
@@ -38,4 +38,4 @@ No chat, autonomous code editing, background indexing, vector database, automati
 
 ## Reuse decision
 
-Need: a source-backed AI explanation from a selected local file. Choice: reuse the current source preview and contained reader, existing import graph where available, and the official Anthropic SDK for the model call. Why: these provide most of the flow with one focused dependency and a narrow server boundary. Avoided: CodeTour as required playback (the pilot failed to start for the user), a new editor extension, general agent subprocesses, and a vector store before there is evidence they are needed.
+Need: a source-backed AI explanation from a selected local file. Choice: reuse the current source preview and contained reader, existing import graph where available, and DeepSeek's JSON chat API through native `fetch`. Why: these provide the flow without a provider SDK dependency and keep the server boundary narrow. Avoided: CodeTour as required playback (the pilot failed to start for the user), a new editor extension, general agent subprocesses, and a vector store before there is evidence they are needed.

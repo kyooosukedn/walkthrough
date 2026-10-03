@@ -97,7 +97,7 @@ export function createExplainHandler(deps: ExplainDependencies): RequestListener
       if (req.headers.origin && req.headers.origin !== `http://${host}`) return send(res, 403, { error: "Cross-origin requests are not allowed." });
       if (req.headers["sec-fetch-site"] === "cross-site") return send(res, 403, { error: "Cross-origin requests are not allowed." });
       if (!req.headers["content-type"]?.toLowerCase().startsWith("application/json")) return send(res, 415, { error: "Send a JSON request." });
-      if (!deps.provider) return send(res, 503, { error: "Configure ANTHROPIC_API_KEY and WALKTHROUGH_AI_MODEL to enable explanations." });
+      if (!deps.provider) return send(res, 503, { error: "Configure DEEPSEEK_API_KEY to enable explanations." });
       if (busy) return send(res, 429, { error: "An explanation is already in progress." });
 
       let body: unknown;

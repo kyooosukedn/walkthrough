@@ -12,15 +12,14 @@ npx walkthrough-cli ./path/to/your/project
 
 Your browser opens to a repo orientation screen. Pick a real file or search by path. The architecture tour remains available as an optional view.
 
-To get a guided explanation of a file, configure an Anthropic API key and model in the terminal that starts Walkthrough:
+To get a guided explanation of a file, configure a DeepSeek API key in the terminal that starts Walkthrough:
 
 ```bash
-export ANTHROPIC_API_KEY=your-key
-export WALKTHROUGH_AI_MODEL=your-model
+export DEEPSEEK_API_KEY=your-key
 npx walkthrough-cli ./path/to/your/project
 ```
 
-In PowerShell, use `$env:ANTHROPIC_API_KEY = "your-key"` and `$env:WALKTHROUGH_AI_MODEL = "your-model"`. Open a file and click **Explain this file**. The CLI then sends up to six scanned, non-secret source files (48,000 characters total) to the configured provider. Scanning and ordinary preview make no AI request. The explanation cites files and lines you can open beside it. TypeScript/JavaScript import links may add relevant files; Python, Go, Rust, and other languages fall back to the selected file, matching test, and nearby documentation when found. AI explanations can be wrong; check the cited code.
+In PowerShell, use `$env:DEEPSEEK_API_KEY = "your-key"`. The default model is `deepseek-flash`; set `DEEPSEEK_MODEL` to another supported DeepSeek model if needed. Open a file and click **Explain this file**. The CLI then sends up to six scanned, non-secret source files (48,000 characters total) to DeepSeek. Scanning and ordinary preview make no AI request. The explanation cites files and lines you can open beside it. TypeScript/JavaScript import links may add relevant files; Python, Go, Rust, and other languages fall back to the selected file, matching test, and nearby documentation when found. AI explanations can be wrong; check the cited code.
 ![Guided tour demo](docs/demo-tour.gif)
 
 *(Real run: a 573-file Next.js + Supabase project scanned in ~1.5 s — welcome, guided tour, then Routes / Components / Database views.)*
