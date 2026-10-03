@@ -59,7 +59,7 @@ test("explain endpoint sends selected source to provider only after valid POST",
   await withEndpoint(provider, async (url) => {
     const response = await request(url);
     assert.equal(response.status, 200);
-    assert.deepEqual(await response.json(), explanation());
+    assert.deepEqual(await response.json(), { ...explanation(), sourcesUsed: ["src/main.py"] });
     assert.equal(response.headers.get("access-control-allow-origin"), null);
     assert.equal(calls, 1);
   });
@@ -117,5 +117,18 @@ test("fabricated citation paths and line numbers are removed", async () => {
     const body = await response.json() as ReturnType<typeof explanation>;
     assert.deepEqual(body.sections[0].citations, [{ path: "src/main.py", startLine: 1, endLine: 2 }]);
     assert.deepEqual(body.nextFiles, [{ path: "src/main.py", reason: "Inspect the function", line: 1 }]);
+  });
+});
+
+test("missing model section headings receive neutral labels without losing cited content", async () => {
+  const response = explanation() as ReturnType<typeof explanation>;
+  delete (response.sections[0] as { heading?: string }).heading;
+  await withEndpoint({ async explain() { return response as ReturnType<typeof explanation>; } }, async (url) => {
+    const result = await request(url);
+    assert.equal(result.status, 200);
+    const body = await result.json() as ReturnType<typeof explanation>;
+    assert.equal(body.sections[0].heading, "Finding 1");
+    assert.equal(body.sections[0].body, "run returns one.");
+    assert.equal(body.sections[0].citations[0].path, "src/main.py");
   });
 });

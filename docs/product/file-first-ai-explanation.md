@@ -1,6 +1,6 @@
-# File-first AI explanation — proposed first slice
+# File-first AI explanation — first slice
 
-Status: proposed, awaiting learner confirmation. This document records a design recommendation, not an implemented feature.
+Status: implemented on `feat/file-first-ai`; awaiting personal pilot and review.
 
 ## Outcome
 

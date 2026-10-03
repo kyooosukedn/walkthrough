@@ -60,12 +60,12 @@ export function validateExplanation(value: unknown, evidence: EvidenceBundle): F
   const raw = value as Record<string, unknown>;
   if (!Array.isArray(raw.sections) || raw.sections.length < 1 || raw.sections.length > 8) throw new Error("Invalid model response.");
   if (!Array.isArray(raw.nextFiles) || !Array.isArray(raw.unknowns)) throw new Error("Invalid model response.");
-  const sections = raw.sections.map((entry: unknown) => {
+  const sections = raw.sections.map((entry: unknown, index: number) => {
     if (!entry || typeof entry !== "object") throw new Error("Invalid model response.");
     const section = entry as Record<string, unknown>;
     if (!Array.isArray(section.citations)) throw new Error("Invalid model response.");
     return {
-      heading: text(section.heading, 120),
+      heading: typeof section.heading === "string" && section.heading.trim() ? text(section.heading, 120) : `Finding ${index + 1}`,
       body: text(section.body, 4_000),
       citations: section.citations.slice(0, 8).map((item: unknown) => citation(item, evidence)).filter((item): item is Citation => !!item),
     };
@@ -117,7 +117,7 @@ export function createExplainHandler(deps: ExplainDependencies): RequestListener
       try {
         const evidence = await buildEvidence(deps.rootPath, path, deps.allowedPaths, deps.imports);
         const response = await deps.provider.explain(evidence);
-        return send(res, 200, validateExplanation(response, evidence));
+        return send(res, 200, { ...validateExplanation(response, evidence), sourcesUsed: evidence.files.map((file) => file.path) });
       } catch (error) {
         if (error instanceof SourceError) return send(res, error.status, { error: error.message });
         return send(res, 502, { error: "AI explanation failed. Try again later." });
