@@ -69,6 +69,7 @@ export function SourcePreview({ path, line, onBack, onOpenSource }: {
       <button onClick={() => void explain()} disabled={explaining || source === null || !!sourceError}>{explaining ? "Explaining…" : "Explain this file"}</button>
       <span>Clicking sends selected source snippets to your configured AI provider. Previewing alone does not.</span>
     </div>
+    {!/\.(?:[cm]?js|[cm]?ts|jsx|tsx)$/i.test(path) && <p className="source-context-note">Walkthrough has no import relationship analysis for this file type. The explanation can use this file, a matching test, and nearby project documentation when available.</p>}
     <div className="source-columns">
       <section className="source-code" aria-label="Source code">
         {sourceError ? <p role="alert">{sourceError}</p> : source === null ? <p>Loading source…</p> : <pre><code>{source.split(/\r?\n/).map((content, index) => <span className="source-line" id={`source-line-${index + 1}`} tabIndex={-1} key={index}><span className="source-line-number" aria-hidden="true">{index + 1}</span>{content || " "}</span>)}</code></pre>}

@@ -14,7 +14,10 @@ const MANIFEST_NAMES = ["package.json", "pyproject.toml", "go.mod", "Cargo.toml"
 /** Conservative blocklist for material that must not be sent to an AI provider. */
 export function isSensitivePath(path: string): boolean {
   const name = posix.basename(path).toLowerCase();
-  return /^\.env(?:$|[._-])/.test(name)
+  const segments = path.toLowerCase().split("/");
+  return /^\.env/.test(name)
+    || [".npmrc", ".pypirc", ".netrc", ".dockercfg", ".git-credentials"].includes(name)
+    || segments.some((segment) => [".aws", ".ssh", ".kube", "secrets", "credentials"].includes(segment))
     || /^(?:id_rsa|id_ed25519|id_ecdsa|known_hosts)$/.test(name)
     || /\.(?:pem|p12|pfx|key|keystore|jks)$/.test(name)
     || /(?:^|[._-])(?:secrets?|credentials?|passwords?|private[-_]?keys?)(?:[._-]|$)/.test(name);

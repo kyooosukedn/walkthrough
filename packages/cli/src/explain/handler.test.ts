@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createServer, type Server } from "node:http";
+import { createServer, request as httpRequest, type Server } from "node:http";
 import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -13,9 +13,11 @@ async function withEndpoint(provider: Provider, run: (url: string) => Promise<vo
   await mkdir(join(root, "src"));
   await writeFile(join(root, "src", "main.py"), "def run():\n    return 1\n");
   await writeFile(join(root, ".env"), "API_KEY=secret\n");
+  await writeFile(join(root, ".npmrc"), "//registry.npmjs.org/:_authToken=secret\n");
+  await writeFile(join(root, ".envrc"), "export TOKEN=secret\n");
   const server: Server = createServer(createExplainHandler({
     rootPath: root,
-    allowedPaths: new Set(["src/main.py", ".env"]),
+    allowedPaths: new Set(["src/main.py", ".env", ".npmrc", ".envrc"]),
     imports: undefined,
     provider,
   }));
@@ -93,7 +95,37 @@ test("foreign browser origin and secret path cannot trigger AI", async () => {
     assert.equal(foreign.status, 403);
     const secret = await request(url, ".env");
     assert.equal(secret.status, 403);
+    assert.equal((await request(url, ".npmrc")).status, 403);
+    assert.equal((await request(url, ".envrc")).status, 403);
     assert.equal(calls, 0);
+  });
+});
+
+test("overlapping request bodies cannot start two provider calls", async () => {
+  let calls = 0;
+  let providerStarted!: () => void;
+  const started = new Promise<void>((resolve) => { providerStarted = resolve; });
+  await withEndpoint({ async explain() { calls++; providerStarted(); await new Promise((resolve) => setTimeout(resolve, 100)); return explanation(); } }, async (url) => {
+    const target = new URL(`${url}/explain`);
+    const payload = JSON.stringify({ path: "src/main.py" });
+    const firstResponse = new Promise<{ status: number }>((resolve, reject) => {
+      const first = httpRequest(target, { method: "POST", headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(payload) } }, (response) => {
+        response.resume();
+        response.on("end", () => resolve({ status: response.statusCode ?? 0 }));
+      });
+      first.on("error", reject);
+      first.write(payload.slice(0, 5));
+      setTimeout(async () => {
+        try {
+          const second = request(url);
+          await started;
+          first.end(payload.slice(5));
+          assert.equal((await second).status, 200);
+        } catch (error) { first.destroy(); reject(error); }
+      }, 15);
+    });
+    assert.equal((await firstResponse).status, 429);
+    assert.equal(calls, 1);
   });
 });
 

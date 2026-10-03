@@ -113,6 +113,7 @@ export function createExplainHandler(deps: ExplainDependencies): RequestListener
       const path = (body as { path: string }).path;
       if (!path || path.length > 2_048) return send(res, 400, { error: "Provide one scanned file path." });
 
+      if (busy) return send(res, 429, { error: "An explanation is already in progress." });
       busy = true;
       try {
         const evidence = await buildEvidence(deps.rootPath, path, deps.allowedPaths, deps.imports);
