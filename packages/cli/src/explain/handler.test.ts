@@ -1,0 +1,121 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { createServer, type Server } from "node:http";
+import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createExplainHandler } from "./handler.js";
+
+type Provider = Parameters<typeof createExplainHandler>[0]["provider"];
+
+async function withEndpoint(provider: Provider, run: (url: string) => Promise<void>) {
+  const root = await mkdtemp(join(tmpdir(), "walkthrough-explain-"));
+  await mkdir(join(root, "src"));
+  await writeFile(join(root, "src", "main.py"), "def run():\n    return 1\n");
+  await writeFile(join(root, ".env"), "API_KEY=secret\n");
+  const server: Server = createServer(createExplainHandler({
+    rootPath: root,
+    allowedPaths: new Set(["src/main.py", ".env"]),
+    imports: undefined,
+    provider,
+  }));
+  try {
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const address = server.address();
+    assert.ok(address && typeof address !== "string");
+    await run(`http://127.0.0.1:${address.port}`);
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await rm(root, { recursive: true, force: true });
+  }
+}
+
+function request(url: string, path = "src/main.py", headers: Record<string, string> = {}) {
+  return fetch(`${url}/explain`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...headers },
+    body: JSON.stringify({ path }),
+  });
+}
+
+function explanation() {
+  return {
+    title: "How main.py runs",
+    sections: [{ heading: "Purpose", body: "run returns one.", citations: [{ path: "src/main.py", startLine: 1, endLine: 2 }] }],
+    nextFiles: [{ path: "src/main.py", reason: "Inspect the function", line: 1 }],
+    exercise: "Change the return value and predict the result.",
+    unknowns: ["No runtime call site was inspected."],
+  };
+}
+
+test("explain endpoint sends selected source to provider only after valid POST", async () => {
+  let calls = 0;
+  const provider = { async explain(evidence: { selectedPath: string; files: Array<{ path: string }> }) {
+    calls++;
+    assert.equal(evidence.selectedPath, "src/main.py");
+    assert.deepEqual(evidence.files.map((file) => file.path), ["src/main.py"]);
+    return explanation();
+  } };
+  await withEndpoint(provider, async (url) => {
+    const response = await request(url);
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), explanation());
+    assert.equal(response.headers.get("access-control-allow-origin"), null);
+    assert.equal(calls, 1);
+  });
+});
+
+test("missing provider returns setup error without reading or sending source", async () => {
+  await withEndpoint(undefined, async (url) => {
+    const response = await request(url);
+    assert.equal(response.status, 503);
+    assert.match(await response.text(), /configure|available/i);
+  });
+});
+
+test("non-JSON, malformed, and oversized bodies never reach provider", async () => {
+  let calls = 0;
+  await withEndpoint({ async explain() { calls++; return explanation(); } }, async (url) => {
+    const plain = await fetch(`${url}/explain`, { method: "POST", headers: { "Content-Type": "text/plain" }, body: "src/main.py" });
+    assert.equal(plain.status, 415);
+    const malformed = await fetch(`${url}/explain`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{" });
+    assert.equal(malformed.status, 400);
+    const oversized = await fetch(`${url}/explain`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: "a".repeat(5000) }) });
+    assert.equal(oversized.status, 413);
+    assert.equal(calls, 0);
+  });
+});
+
+test("foreign browser origin and secret path cannot trigger AI", async () => {
+  let calls = 0;
+  await withEndpoint({ async explain() { calls++; return explanation(); } }, async (url) => {
+    const foreign = await request(url, "src/main.py", { Origin: "https://example.com" });
+    assert.equal(foreign.status, 403);
+    const secret = await request(url, ".env");
+    assert.equal(secret.status, 403);
+    assert.equal(calls, 0);
+  });
+});
+
+test("provider errors do not leak prompt or key-like details", async () => {
+  await withEndpoint({ async explain() { throw new Error("API_KEY=very-secret prompt=source"); } }, async (url) => {
+    const response = await request(url);
+    assert.equal(response.status, 502);
+    const body = await response.text();
+    assert.doesNotMatch(body, /very-secret|prompt=source/);
+  });
+});
+
+test("fabricated citation paths and line numbers are removed", async () => {
+  const bad = explanation();
+  bad.sections[0].citations.push({ path: ".env", startLine: 1, endLine: 1 });
+  bad.sections[0].citations.push({ path: "src/main.py", startLine: 999, endLine: 999 });
+  bad.nextFiles.push({ path: ".env", reason: "fake", line: 1 });
+  await withEndpoint({ async explain() { return bad; } }, async (url) => {
+    const response = await request(url);
+    assert.equal(response.status, 200);
+    const body = await response.json() as ReturnType<typeof explanation>;
+    assert.deepEqual(body.sections[0].citations, [{ path: "src/main.py", startLine: 1, endLine: 2 }]);
+    assert.deepEqual(body.nextFiles, [{ path: "src/main.py", reason: "Inspect the function", line: 1 }]);
+  });
+});

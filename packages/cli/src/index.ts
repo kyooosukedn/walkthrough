@@ -8,6 +8,8 @@ import { exec } from "node:child_process";
 
 import { scan, writeCodeMap } from "@walkthrough/scanner";
 import { readSource, SourceError } from "./source.js";
+import { createExplainHandler } from "./explain/handler.js";
+import { createAnthropicProviderFromEnv } from "./explain/provider.js";
 
 const args = process.argv.slice(2);
 
@@ -90,6 +92,12 @@ async function serve(codemap: Awaited<ReturnType<typeof scan>>, port: number) {
     else for (const child of node.children ?? []) collectFiles(child);
   }
   collectFiles(codemap.fileTree);
+  const explain = createExplainHandler({
+    rootPath: targetPath,
+    allowedPaths,
+    imports: codemap.imports,
+    provider: createAnthropicProviderFromEnv(),
+  });
 
   // Prefer the visualizer bundled inside this package (published installs);
   // fall back to the monorepo layout for development.
@@ -100,6 +108,10 @@ async function serve(codemap: Awaited<ReturnType<typeof scan>>, port: number) {
 
   const server = createServer(async (req, res) => {
     const requestUrl = new URL(req.url ?? "/", "http://localhost");
+    if (requestUrl.pathname === "/explain") {
+      explain(req, res);
+      return;
+    }
     if (requestUrl.pathname === "/source") {
       try {
         const content = await readSource(targetPath, requestUrl.searchParams.get("path") ?? "", allowedPaths);
