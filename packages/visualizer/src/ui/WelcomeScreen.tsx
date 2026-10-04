@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Compass, FileCode2, Play, Search } from "lucide-react";
+import { Activity, Compass, FileCode2, Play, Search } from "lucide-react";
 import type { CodeMap, FileTreeNode } from "../types.js";
 
 interface WelcomeScreenProps {
@@ -8,6 +8,7 @@ interface WelcomeScreenProps {
   onExplore: () => void;
   onOpenSource: (path: string) => void;
   hasTour: boolean;
+  onOpenActivity?: () => void;
 }
 
 function allFiles(tree: FileTreeNode): string[] {
@@ -15,7 +16,7 @@ function allFiles(tree: FileTreeNode): string[] {
   return (tree.children ?? []).flatMap(allFiles);
 }
 
-export function WelcomeScreen({ data, onStartTour, onExplore, onOpenSource, hasTour }: WelcomeScreenProps) {
+export function WelcomeScreen({ data, onStartTour, onExplore, onOpenSource, hasTour, onOpenActivity }: WelcomeScreenProps) {
   const [query, setQuery] = useState("");
   const files = useMemo(() => allFiles(data.fileTree), [data.fileTree]);
   const fileSet = useMemo(() => new Set(files), [files]);
@@ -77,6 +78,7 @@ export function WelcomeScreen({ data, onStartTour, onExplore, onOpenSource, hasT
         </div>
 
         <div className="onramp-actions">
+          {onOpenActivity && <button onClick={onOpenActivity}><Activity size={16} /> Watch agent activity</button>}
           {hasTour && <button onClick={onStartTour}><Play size={16} /> View architecture tour</button>}
           <button onClick={onExplore}><Compass size={16} /> Explore map</button>
         </div>

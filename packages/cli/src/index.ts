@@ -4,12 +4,17 @@ import { resolve, join } from "node:path";
 import { existsSync } from "node:fs";
 import { createServer } from "node:http";
 import { readFile, stat } from "node:fs/promises";
-import { exec } from "node:child_process";
+import { exec, execFileSync, spawn } from "node:child_process";
+import { randomBytes } from "node:crypto";
 
 import { scan, writeCodeMap } from "@walkthrough/scanner";
 import { readSource, SourceError } from "./source.js";
 import { createExplainHandler } from "./explain/handler.js";
 import { createDeepSeekProviderFromEnv } from "./explain/provider.js";
+import { buildLessonContext, scannedPaths } from "./agent/context.js";
+import { createActivityCollector } from "./activity/collector.js";
+import { createActivityStore } from "./activity/store.js";
+import type { ActivityEventInput } from "./activity/types.js";
 
 const args = process.argv.slice(2);
 
@@ -22,10 +27,20 @@ for (let i = 0; i < args.length; i++) {
     flags.json = true;
   } else if (args[i] === "--no-serve") {
     flags.noServe = true;
+  } else if (args[i] === "--lesson-context") {
+    if (!args[i + 1] || args[i + 1].startsWith("-")) {
+      console.error("✗ --lesson-context requires a repo-relative file path.");
+      process.exit(1);
+    }
+    flags.lessonContext = args[++i];
   } else if (args[i] === "--output" && args[i + 1]) {
     flags.output = args[++i];
   } else if (args[i] === "--port" && args[i + 1]) {
     flags.port = args[++i];
+  } else if (args[i] === "--host" && args[i + 1]) {
+    flags.host = args[++i];
+  } else if (args[i] === "--prompt" && args[i + 1]) {
+    flags.prompt = args[++i];
   } else if (args[i] === "--help" || args[i] === "-h") {
     printHelp();
     process.exit(0);
@@ -34,7 +49,8 @@ for (let i = 0; i < args.length; i++) {
   }
 }
 
-const targetPath = resolve(positional[0] || ".");
+const observing = positional[0] === "observe";
+const targetPath = resolve((observing ? positional[1] : positional[0]) || ".");
 
 if (!existsSync(targetPath)) {
   console.error(`✗ Path not found: ${targetPath}`);
@@ -48,6 +64,15 @@ main().catch((err) => {
 });
 
 async function main() {
+  if (observing && (flags.host !== "claude" && flags.host !== "codex")) throw new Error("observe requires --host claude or --host codex.");
+  if (observing && flags.host === "codex" && typeof flags.prompt !== "string") throw new Error("Codex observation requires --prompt.");
+  if (observing && (flags.json || flags.noServe || flags.lessonContext)) throw new Error("observe needs the local viewer; remove --json, --no-serve, and --lesson-context.");
+  if (typeof flags.lessonContext === "string") {
+    const codemap = await scan(targetPath);
+    const packet = await buildLessonContext(targetPath, flags.lessonContext, codemap);
+    process.stdout.write(JSON.stringify(packet, null, 2) + "\n");
+    return;
+  }
   console.log(`◆ Walkthrough — scanning ${targetPath}`);
 
   // Scan
@@ -80,18 +105,17 @@ async function main() {
 
   // Serve
   const port = parseInt(String(flags.port || "3000"), 10);
-  await serve(codemap, port);
+  await serve(codemap, port, observing ? { host: flags.host as "claude" | "codex", prompt: flags.prompt as string | undefined } : undefined);
 }
 
 // ─── HTTP server ─────────────────────────────────────────────
-async function serve(codemap: Awaited<ReturnType<typeof scan>>, port: number) {
+async function serve(codemap: Awaited<ReturnType<typeof scan>>, port: number, observe?: { host: "claude" | "codex"; prompt?: string }) {
   const codemapJson = JSON.stringify(codemap, null, 2);
-  const allowedPaths = new Set<string>();
-  function collectFiles(node: typeof codemap.fileTree): void {
-    if (node.type === "file") allowedPaths.add(node.path);
-    else for (const child of node.children ?? []) collectFiles(child);
-  }
-  collectFiles(codemap.fileTree);
+  const allowedPaths = scannedPaths(codemap.fileTree);
+  const token = observe ? randomBytes(32).toString("hex") : undefined;
+  const store = observe ? createActivityStore({ maxEvents: 500 }) : undefined;
+  const collector = observe && token && store ? createActivityCollector({ repoRoot: targetPath, token, store }) : undefined;
+  store?.subscribe((event) => { if (event.path) allowedPaths.add(event.path); });
   const explain = createExplainHandler({
     rootPath: targetPath,
     allowedPaths,
@@ -108,6 +132,16 @@ async function serve(codemap: Awaited<ReturnType<typeof scan>>, port: number) {
 
   const server = createServer(async (req, res) => {
     const requestUrl = new URL(req.url ?? "/", "http://localhost");
+    if (requestUrl.pathname === "/activity/events" || requestUrl.pathname === "/activity/stream") {
+      if (collector) collector.handler(req, res);
+      else { res.writeHead(404); res.end("Activity is not enabled."); }
+      return;
+    }
+    if (requestUrl.pathname === "/activity/config") {
+      res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+      res.end(JSON.stringify({ enabled: !!collector }));
+      return;
+    }
     if (requestUrl.pathname === "/explain") {
       explain(req, res);
       return;
@@ -154,7 +188,7 @@ async function serve(codemap: Awaited<ReturnType<typeof scan>>, port: number) {
         png: "image/png",
         ico: "image/x-icon",
       };
-      res.writeHead(200, { "Content-Type": types[ext ?? ""] ?? "application/octet-stream" });
+      res.writeHead(200, { "Content-Type": types[ext ?? ""] ?? "application/octet-stream", ...(filePath.endsWith("index.html") && collector ? { "Set-Cookie": collector.viewerCookie(), "Cache-Control": "no-store" } : {}) });
       res.end(content);
     } catch {
       res.writeHead(404);
@@ -166,6 +200,9 @@ async function serve(codemap: Awaited<ReturnType<typeof scan>>, port: number) {
     const url = `http://127.0.0.1:${port}`;
     console.log(`  ◆ Open: ${url}`);
     open(url);
+    if (observe && token) void launchObservedHost(observe, port, token).catch((error) => {
+      console.error(`  ✗ Agent session failed: ${error instanceof Error ? error.message : String(error)}`);
+    });
   }).on("error", (err: NodeJS.ErrnoException) => {
     if (err.code === "EADDRINUSE") {
       console.error(`  ✗ Port ${port} is in use. Try --port ${port + 1}`);
@@ -174,6 +211,64 @@ async function serve(codemap: Awaited<ReturnType<typeof scan>>, port: number) {
     }
     process.exit(1);
   });
+}
+
+async function launchObservedHost(observe: { host: "claude" | "codex"; prompt?: string }, port: number, token: string) {
+  const url = `http://127.0.0.1:${port}`;
+  if (observe.host === "claude") {
+    // Claude hooks post directly to the local collector.
+    await launchClaudeObserved({ repoRoot: targetPath, url, token });
+    return;
+  }
+  const { runCodexObserved } = await import("./activity/adapters/codex-runner.js");
+  const sessionId = randomBytes(16).toString("hex");
+  let pending = Promise.resolve();
+  const emit = (event: ActivityEventInput) => {
+    pending = pending.then(async () => {
+      const response = await fetch(`${url}/activity/events`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(event) });
+      if (!response.ok) console.error(`  ✗ Activity event rejected (${response.status}).`);
+    }).catch((error) => console.error(`  ✗ Activity event delivery failed: ${error instanceof Error ? error.message : String(error)}`));
+  };
+  console.log("  ◆ Starting one Codex CLI task. Activity stays local.");
+  const result = await runCodexObserved({ repoRoot: targetPath, prompt: observe.prompt!, sessionId, emit });
+  await pending;
+  console.log(`  Codex exited (${result.exitCode ?? "signal"}). Activity remains visible until Walkthrough stops.`);
+}
+
+async function launchClaudeObserved({ repoRoot, url, token }: { repoRoot: string; url: string; token: string }): Promise<void> {
+  // The Claude plugin lives in this source checkout; packaged installs get a clear error.
+  const pluginRoot = resolve(import.meta.dirname ?? ".", "../../..");
+  if (!existsSync(join(pluginRoot, ".claude-plugin", "plugin.json")) || !existsSync(join(pluginRoot, "packages", "cli", "scripts", "claude-hook.mjs"))) {
+    throw new Error("Claude observation currently requires a Walkthrough source checkout with a built CLI. Run npm run build:cli in that checkout.");
+  }
+  console.log("  ◆ Starting Claude Code in observed checkout. Activity stays local.");
+  const child = spawn(claudeExecutable(), ["--plugin-dir", pluginRoot], {
+    cwd: repoRoot,
+    env: { ...process.env, WALKTHROUGH_ACTIVITY_URL: url, WALKTHROUGH_ACTIVITY_TOKEN: token },
+    stdio: "inherit",
+    shell: false,
+  });
+  await new Promise<void>((resolveChild, rejectChild) => {
+    child.once("error", rejectChild);
+    child.once("exit", (code) => { console.log(`  Claude exited (${code ?? "signal"}). Activity remains visible until Walkthrough stops.`); resolveChild(); });
+  });
+}
+
+function claudeExecutable(): string {
+  if (process.platform !== "win32") return "claude";
+  // npm's Windows shim is a .cmd file. Spawn the native binary it points to,
+  // preserving argument boundaries and an interactive console without a shell.
+  let candidates: string[] = [];
+  try { candidates = execFileSync("where.exe", ["claude"], { encoding: "utf8" }).split(/\r?\n/).filter(Boolean); }
+  catch { /* The actionable error below covers missing installations. */ }
+  for (const candidate of candidates) {
+    if (candidate.toLowerCase().endsWith(".exe") && existsSync(candidate)) return candidate;
+    if (candidate.toLowerCase().endsWith(".cmd")) {
+      const native = resolve(candidate, "..", "node_modules", "@anthropic-ai", "claude-code", "bin", "claude.exe");
+      if (existsSync(native)) return native;
+    }
+  }
+  throw new Error("Claude Code native executable was not found. Install or update Claude Code, then retry.");
 }
 
 // ─── Open browser ────────────────────────────────────────────
@@ -197,12 +292,17 @@ function printHelp() {
 Usage:
   walkthrough [path]     Scan a project and open visualizer
   walkthrough .          Scan current directory
+  walkthrough observe <path> --host claude
+  walkthrough observe <path> --host codex --prompt "<task>"
 
 Options:
   --json                Output codemap.json to stdout
   --output <path>       Write JSON to custom path
   --port <number>       Dev server port (default: 3000)
   --no-serve            Write JSON and exit
+  --host <name>         Agent host for observed session: claude or codex
+  --prompt <task>       Required task for non-interactive Codex observation
+  --lesson-context <file>  Print bounded source evidence as JSON for an AI lesson
   -h, --help            Show this help
 
 Examples:

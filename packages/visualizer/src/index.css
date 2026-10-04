@@ -111,6 +111,18 @@ body {
 .source-preview { padding: 24px; }
 .source-preview header { display: flex; align-items: center; gap: 20px; padding-bottom: 18px; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
 .source-preview header button { color: var(--accent-secondary); }
+.learning-journey { margin-top: 18px; padding: 15px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+.learning-journey-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+.learning-journey-heading strong { font: 700 14px var(--font-display); }
+.learning-journey-heading span { color: var(--text-muted); font: 12px var(--font-mono); }
+.learning-journey ol { display: flex; gap: 10px; overflow-x: auto; list-style: none; padding-bottom: 3px; }
+.learning-journey li { flex: 0 0 auto; min-width: 0; max-width: 270px; }
+.learning-journey li button { display: flex; align-items: flex-start; gap: 9px; width: 100%; padding: 9px; border: 1px solid var(--border); border-radius: 6px; text-align: left; }
+.learning-journey li button[aria-current="step"] { border-color: var(--accent-secondary); background: var(--bg-elevated); }
+.learning-journey-number { display: grid; flex: 0 0 24px; place-items: center; height: 24px; border-radius: 50%; background: var(--bg-elevated); color: var(--accent-secondary); font: 12px var(--font-mono); }
+.learning-journey-label { display: grid; min-width: 0; gap: 4px; }
+.learning-journey-label strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 12px var(--font-mono); }
+.learning-journey-label small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); font-size: 11px; }
 .source-preview p { margin-top: 20px; color: var(--text-muted); }
 .source-preview pre { margin-top: 20px; padding: 20px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); font: 13px/1.6 var(--font-mono); tab-size: 2; }
 .source-preview pre { max-height: calc(100vh - 220px); }

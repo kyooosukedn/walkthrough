@@ -4,7 +4,7 @@ import { createDeepSeekProviderFromEnv } from "./provider.js";
 
 const evidence = {
   selectedPath: "src/main.py",
-  files: [{ path: "src/main.py", content: "def run():\n    return 1\n", lineCount: 3 }],
+  files: [{ path: "src/main.py", content: "def run():\n    return 1\n", lineCount: 3, truncated: false }],
 };
 
 const explanation = {
@@ -33,6 +33,9 @@ test("provider sends bounded JSON request to DeepSeek and parses structured answ
     assert.equal(body.model, "deepseek-flash");
     assert.deepEqual(body.response_format, { type: "json_object" });
     assert.ok(body.max_tokens > 0 && body.max_tokens <= 3000);
+    assert.match(body.messages[0].content, /define unfamiliar terms/i);
+    assert.match(body.messages[0].content, /predict/i);
+    assert.match(body.messages[0].content, /cite exact supplied file paths and line ranges/i);
     assert.match(body.messages[1].content, /src\/main\.py/);
     assert.match(body.messages[1].content, /1: def run/);
     return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(explanation) } }] }), { status: 200 });

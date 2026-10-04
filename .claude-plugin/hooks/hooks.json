@@ -1,0 +1,8 @@
+{
+  "hooks": {
+    "SessionStart": [{ "hooks": [{ "type": "command", "command": "node", "args": ["${CLAUDE_PLUGIN_ROOT}/packages/cli/scripts/claude-hook.mjs"], "timeout": 2 }] }],
+    "PostToolUse": [{ "hooks": [{ "type": "command", "command": "node", "args": ["${CLAUDE_PLUGIN_ROOT}/packages/cli/scripts/claude-hook.mjs"], "timeout": 2 }] }],
+    "PostToolUseFailure": [{ "hooks": [{ "type": "command", "command": "node", "args": ["${CLAUDE_PLUGIN_ROOT}/packages/cli/scripts/claude-hook.mjs"], "timeout": 2 }] }],
+    "Stop": [{ "hooks": [{ "type": "command", "command": "node", "args": ["${CLAUDE_PLUGIN_ROOT}/packages/cli/scripts/claude-hook.mjs"], "timeout": 2 }] }]
+  }
+}

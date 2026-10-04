@@ -1,4 +1,4 @@
-import { Search, Sliders, Play, X } from "lucide-react";
+import { Activity, Search, Sliders, Play, X } from "lucide-react";
 
 interface TopBarProps {
   activeView?: string;
@@ -8,6 +8,7 @@ interface TopBarProps {
   onStopTour?: () => void;
   hasTour?: boolean;
   meta?: { name: string; frameworks: Array<{ name: string }> };
+  onOpenActivity?: () => void;
 }
 
 const VIEW_TABS = [
@@ -26,6 +27,7 @@ export function TopBar({
   onStopTour,
   hasTour = false,
   meta,
+  onOpenActivity,
 }: TopBarProps) {
   return (
     <div
@@ -100,6 +102,8 @@ export function TopBar({
 
       {/* Spacer */}
       <div style={{ flex: 1 }} />
+
+      {onOpenActivity && <button type="button" onClick={onOpenActivity} style={{ ...iconBtnStyle, width: "auto", padding: "0 10px", gap: 6 }}><Activity size={15} /> Activity</button>}
 
       {/* Tour button */}
       {hasTour && !isTourActive && onStartTour && (

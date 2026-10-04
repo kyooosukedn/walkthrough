@@ -2,7 +2,7 @@ import type { ImportGraph } from "@walkthrough/scanner";
 import { posix } from "node:path";
 import { readSource, SourceError } from "../source.js";
 
-export interface EvidenceFile { path: string; content: string; lineCount: number }
+export interface EvidenceFile { path: string; content: string; lineCount: number; truncated: boolean }
 export interface EvidenceBundle { selectedPath: string; files: EvidenceFile[] }
 
 const MAX_FILES = 6;
@@ -86,7 +86,7 @@ export async function buildEvidence(
       }
       const content = fullContent.slice(0, remaining);
       if (!content) continue;
-      files.push({ path, content, lineCount: content.split(/\r?\n/).length });
+      files.push({ path, content, lineCount: content.split(/\r?\n/).length, truncated: content.length < fullContent.length });
       remaining -= content.length;
     } catch (error) {
       if (path === selectedPath) throw error;

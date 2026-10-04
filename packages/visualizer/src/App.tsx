@@ -1,4 +1,4 @@
-import { useState, useCallback, lazy, Suspense } from "react";
+import { useState, useCallback, useEffect, lazy, Suspense } from "react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { CodeMapProvider, useCodeMap } from "./data/context.js";
 import { Layout } from "./ui/Layout.js";
@@ -9,6 +9,9 @@ import { SourcePreview } from "./ui/SourcePreview.js";
 import { TourSidebar } from "./tour/TourSidebar.js";
 import { NarrationPanel } from "./tour/NarrationPanel.js";
 import { TourEngine, type TourState } from "./tour/TourEngine.js";
+import { followJourney, jumpJourney, startJourney, type Journey } from "./journey/state.js";
+import type { FileExplanation } from "./explain/FileExplanationPanel.js";
+import { ActivityPanel } from "./activity/ActivityPanel.js";
 
 // Graph views pull heavy deps (React Flow, elkjs, framer-motion) — the
 // welcome screen ships without them, so first paint stays small.
@@ -17,7 +20,7 @@ const RouteMap = lazy(() => import("./views/RouteMap.js").then((m) => ({ default
 const ComponentTree = lazy(() => import("./views/ComponentTree.js").then((m) => ({ default: m.ComponentTree })));
 const DatabaseSchemaView = lazy(() => import("./views/DatabaseSchemaView.js").then((m) => ({ default: m.DatabaseSchemaView })));
 
-type AppMode = "welcome" | "tour" | "explore" | "source";
+type AppMode = "welcome" | "tour" | "explore" | "source" | "activity";
 
 export function App() {
   return (
@@ -30,15 +33,38 @@ export function App() {
 function AppContent() {
   const { data, loading, error } = useCodeMap();
   const [mode, setMode] = useState<AppMode>("welcome");
+  const [sourceReturnMode, setSourceReturnMode] = useState<"welcome" | "activity">("welcome");
   const [activeView, setActiveView] = useState("overview");
   const [tourEngine, setTourEngine] = useState<TourEngine | null>(null);
   const [tourState, setTourState] = useState<TourState | null>(null);
-  const [sourcePath, setSourcePath] = useState<string | null>(null);
-  const [sourceLine, setSourceLine] = useState<number | undefined>();
+  const [journey, setJourney] = useState<Journey | null>(null);
+  const [explanations, setExplanations] = useState<Record<string, FileExplanation>>({});
+  const [activityAvailable, setActivityAvailable] = useState(false);
+  useEffect(() => {
+    fetch("/activity/config").then((response) => response.ok ? response.json() : null)
+      .then((config: { enabled?: boolean } | null) => setActivityAvailable(config?.enabled === true))
+      .catch(() => {});
+  }, []);
   const openSource = useCallback((path: string, line?: number) => {
-    setSourcePath(path);
-    setSourceLine(line);
+    setSourceReturnMode(mode === "activity" ? "activity" : "welcome");
+    setJourney(startJourney(path, line));
     setMode("source");
+  }, [mode]);
+  const followSource = useCallback((path: string, line?: number, reason?: string) => {
+    setJourney((current) => current
+      ? followJourney(current, { path, line, reason })
+      : startJourney(path, line));
+    setMode("source");
+  }, []);
+  const openCitation = useCallback((path: string, line?: number) => {
+    followSource(path, line, "Source citation");
+  }, [followSource]);
+  const returnToOverview = useCallback(() => {
+    setJourney(null);
+    setMode(sourceReturnMode);
+  }, [sourceReturnMode]);
+  const saveExplanation = useCallback((path: string, explanation: FileExplanation) => {
+    setExplanations((current) => ({ ...current, [path]: explanation }));
   }, []);
 
   const handleStartTour = useCallback(() => {
@@ -100,8 +126,28 @@ function AppContent() {
 
   if (!data) return null;
 
-  if (mode === "source" && sourcePath) {
-    return <SourcePreview path={sourcePath} line={sourceLine} onBack={() => setMode("welcome")} onOpenSource={openSource} />;
+  if (mode === "source" && journey) {
+    const step = journey.steps[journey.activeIndex];
+    return <SourcePreview
+      key={step.path}
+      path={step.path}
+      line={step.line}
+      journey={journey}
+      cachedExplanation={explanations[step.path] ?? null}
+      onBack={returnToOverview}
+      backLabel={sourceReturnMode === "activity" ? "← Agent activity" : "← Repo overview"}
+      onOpenSource={openCitation}
+      onFollowNext={followSource}
+      onJump={(index) => setJourney((current) => current ? jumpJourney(current, index) : current)}
+      onExplanation={saveExplanation}
+    />;
+  }
+
+  if (mode === "activity" && activityAvailable) {
+    return <div style={{ minHeight: "100vh", background: "var(--bg-deep)" }}>
+      <button type="button" onClick={returnToOverview} style={{ margin: 20, padding: "8px 12px" }}>← Repo start</button>
+      <ActivityPanel onOpenSource={openSource} />
+    </div>;
   }
 
   // Welcome screen
@@ -113,6 +159,7 @@ function AppContent() {
         onExplore={handleExplore}
         onOpenSource={openSource}
         hasTour={!!data.tour && data.tour.steps.length > 0}
+        onOpenActivity={activityAvailable ? () => setMode("activity") : undefined}
       />
     );
   }
@@ -137,6 +184,7 @@ function AppContent() {
           onStopTour={handleStopTour}
           hasTour={!!data.tour && data.tour.steps.length > 0}
           meta={data.meta}
+          onOpenActivity={activityAvailable ? () => setMode("activity") : undefined}
         />
       }
       sidebar={sidebar}

@@ -40,6 +40,13 @@ describe("deriveOrientation", () => {
     const tree = dir(".", [dir("docs", [file("docs/guide.md")]), file("README.md"), file("ARCHITECTURE.md")]);
     expect(deriveOrientation(tree).docs).toEqual(["README.md", "ARCHITECTURE.md", "docs/guide.md"]);
   });
+
+  it("does not list design documents in a specs directory as tests", () => {
+    const tree = dir(".", [dir("docs", [dir("docs/superpowers", [dir("docs/superpowers/specs", [file("docs/superpowers/specs/journey-design.md")])])])]);
+    const orientation = deriveOrientation(tree);
+    expect(orientation.docs).toContain("docs/superpowers/specs/journey-design.md");
+    expect(orientation.tests).toEqual([]);
+  });
 });
 
 describe("scan orientation across languages", () => {
