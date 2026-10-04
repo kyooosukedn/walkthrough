@@ -30,8 +30,9 @@ export function normalizeClaudeHook(input: unknown, repoRoot: string, at = new D
   let detail: string | undefined;
 
   if (hook === "SessionStart") {
-    if (data.source !== "startup") return null;
-    kind = "session"; phase = "started"; title = "Claude session started";
+    if (data.source !== "startup" && data.source !== "resume" && data.source !== "compact") return null;
+    kind = "session"; phase = "started";
+    title = data.source === "resume" ? "Claude session resumed" : data.source === "compact" ? "Claude session continued after compaction" : "Claude session started";
   } else if (hook === "Stop") {
     kind = "session"; phase = "completed"; title = "Claude response completed";
   } else if (hook === "PostToolUse" || hook === "PostToolUseFailure") {

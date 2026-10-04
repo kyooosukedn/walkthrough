@@ -32,7 +32,7 @@ The browser's **Explain this file** button still uses the optional DeepSeek inte
 
 ## Watch an agent work in the browser
 
-First build Walkthrough from this checkout with `npm install` and `npm run build`. Then start a new, explicitly observed session:
+Build Walkthrough from this checkout with `npm install` and `npm run build`. The CLI package now contains the observer plugin, so a package install will work once the CLI and its scanner dependency are published to npm. Then start a new, explicitly observed session:
 
 ```bash
 node packages/cli/dist/index.js observe ./path/to/project --host claude
@@ -45,4 +45,4 @@ For Codex, use a Git checkout as the target. `codex exec` exits before starting 
 
 Each card says what the host reported doing and whether it completed or failed. **Observed** means a host event or tool result, not an independent test of correctness. **Agent said** is reserved for host-authored messages when an adapter supplies them. Open a linked file to see its *current* contents; this is not a per-action diff. New files created during the session are available after the collector accepts the file event. The collector, feed, and source preview run on loopback and stay in memory; Walkthrough does not send activity to a cloud service or need a DeepSeek key for this view.
 
-This first release observes sessions started by these commands. It cannot attach to an existing Codex Desktop chat or arbitrary agent process. It omits raw prompts, command text and output, full environment variables, private reasoning, and files outside the checkout. Claude hooks report tool events from Claude Code; Codex events come from `codex exec --json` and therefore cannot make the session interactive. The Claude observer plugin currently requires a built Walkthrough source checkout, rather than an npm-only install. Ordinary `walkthrough <repo>` scans without starting an agent or showing the activity tab.
+This first release observes sessions started by these commands. It cannot attach to an existing Codex Desktop chat or arbitrary agent process. It omits raw prompts, command text and output, full environment variables, private reasoning, and files outside the checkout. Claude hooks report tool events from Claude Code; Codex events come from `codex exec --json` and therefore cannot make the session interactive. The Claude observer plugin is included in the CLI package; it does not require a separate plugin install. Ordinary `walkthrough <repo>` scans without starting an agent or showing the activity tab.
