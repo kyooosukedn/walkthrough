@@ -23,6 +23,7 @@
 .activity-phase--completed { color: var(--accent-secondary); }
 .activity-item h2 { margin-top: 10px; font: 600 16px/1.4 var(--font-display); overflow-wrap: anywhere; }
 .activity-item p { margin-top: 6px; color: var(--text-muted); line-height: 1.5; overflow-wrap: anywhere; }
+.activity-item .activity-verify-cue { margin-top: 12px; color: var(--text); font-weight: 600; }
 .activity-source { margin-top: 13px; padding: 7px 10px; border: 1px solid var(--border-active); border-radius: 5px; background: var(--bg-elevated); color: var(--accent-secondary); cursor: pointer; font: 12px/1.5 var(--font-body); text-align: left; overflow-wrap: anywhere; }
 .activity-source:hover { border-color: var(--accent-secondary); }
 .activity-source:focus-visible { outline: 2px solid var(--accent-secondary); outline-offset: 3px; }

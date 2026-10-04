@@ -23,6 +23,8 @@ node packages/cli/dist/index.js observe ./path/to/project --host codex --prompt 
 
 Claude opens an interactive terminal. Codex runs one non-interactive task. The activity feed shows completed actions and current source files, labeled **Observed**; it does not show private reasoning or full command output. It needs no separate DeepSeek key. Setup, limits, and how the two hosts differ are in the [agent companion guide](./docs/AGENT_COMPANION.md#watch-an-agent-work-in-the-browser).
 
+Add `--teach` to either command to ask that same agent for one short, source-linked note after a response. In the activity feed it appears as **Agent said**. Open the cited file to check the claim; the link shows the file's current contents, not proof of why a change was made. No extra API key is needed.
+
 To get a guided explanation of a file, configure a DeepSeek API key in the terminal that starts Walkthrough:
 
 ```bash

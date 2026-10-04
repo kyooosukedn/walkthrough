@@ -22,6 +22,8 @@ interface ActivityEventInput {
 
 `message` is agent-authored text and must appear as **Agent said**. Other kinds describe host-observed actions and appear as **Observed**. Do not turn a tool event into a claim about why the agent acted. For a file event, `path` is optional; when omitted, show no source link. Existing source preview may impose further restrictions on which validated paths it can open.
 
+In explicit `--teach` mode, adapters may emit one `message` after a completed response with title `Agent said`, a validated repo-relative `path`, and a short `detail` extracted from the marked line in the host's visible answer. The collector still validates the path and text. The source link shows the file's current contents; it does not verify the agent's explanation. Without `--teach`, adapters do not forward answer text.
+
 The body limit is 8,192 bytes. Unknown fields are rejected, except `sequence`: if an adapter sends it, the collector ignores it. The collector validates the exact enum values and text limits, blocks common secret patterns in `title` and `detail`, and rejects missing, absolute, traversal, secret-looking, or symlink-escaped paths. Files must exist inside the checkout at ingestion. Validation is intentionally conservative, but adapters must still avoid sensitive content in ordinary strings; this filter cannot classify every secret.
 
 The successful response is HTTP 201 with `ActivityEvent`, which is the input plus a collector-assigned, monotonically increasing `sequence`. One collector instance accepts only the first authenticated `sessionId` it sees; subsequent different session IDs receive HTTP 400. HTTP 401 means bad bearer token. HTTP 413 means oversized body.

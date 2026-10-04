@@ -59,7 +59,8 @@ async function walkDir(rootPath: string, currentPath: string): Promise<FileTreeN
   const children: FileTreeNode[] = [];
 
   for (const entry of entries) {
-    if (entry.isDirectory() && IGNORE_DIRS.has(entry.name)) continue;
+    // Linked Git worktrees use a .git file instead of a .git directory.
+    if (IGNORE_DIRS.has(entry.name)) continue;
     if (entry.isFile() && IGNORE_FILES.has(entry.name)) continue;
 
     try {

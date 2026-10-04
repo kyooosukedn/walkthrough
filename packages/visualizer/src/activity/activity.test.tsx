@@ -75,6 +75,27 @@ describe("activity timeline", () => {
     expect(html).toContain("Codex CLI");
   });
 
+  it("asks readers to verify a source-linked agent claim without adding that cue to observed actions", () => {
+    const onOpenSource = vi.fn();
+    const note = ActivityItem({ event: event(1, {
+      kind: "message", path: "src/checkout.ts", title: "Checkout validates the cart",
+      detail: "This file rejects carts without an address.",
+    }), onOpenSource });
+    const noteHtml = renderToStaticMarkup(note);
+    expect(noteHtml).toContain("Agent said");
+    expect(noteHtml).toContain("Check this claim in the current file.");
+    expect(noteHtml).toContain("Open current file: <span>src/checkout.ts</span>");
+    const button = (note.props.children as unknown[]).find((child: any) => child?.props?.onClick) as { props: { onClick: () => void } };
+    button.props.onClick();
+    expect(onOpenSource).toHaveBeenCalledWith("src/checkout.ts");
+
+    const observed = renderToStaticMarkup(<ActivityItem event={event(2, { kind: "file", path: "src/checkout.ts" })} onOpenSource={onOpenSource} />);
+    expect(observed).toContain("Observed");
+    expect(observed).not.toContain("Check this claim in the current file.");
+    const unlinkedMessage = renderToStaticMarkup(<ActivityItem event={event(3, { kind: "message", path: "../secret.env" })} onOpenSource={onOpenSource} />);
+    expect(unlinkedMessage).not.toContain("Check this claim in the current file.");
+  });
+
   it("offers current file only for a safe repo-relative path and calls the source callback", () => {
     const onOpenSource = vi.fn();
     const item = ActivityItem({ event: event(1, { kind: "file", path: "src/app.ts" }), onOpenSource });

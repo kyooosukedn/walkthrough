@@ -1,7 +1,7 @@
 import { readFile, realpath, stat } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
-const MAX_SOURCE_BYTES = 512 * 1024;
+export const MAX_SOURCE_BYTES = 512 * 1024;
 
 export class SourceError extends Error {
   constructor(message: string, readonly status = 400) {

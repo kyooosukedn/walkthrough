@@ -90,6 +90,7 @@ export function ActivityItem({ event, onOpenSource }: { event: ActivityEvent; on
       </div>
       <h2>{event.title}</h2>
       {event.detail && <p>{event.detail}</p>}
+      {event.kind === "message" && path && <p className="activity-verify-cue">Check this claim in the current file.</p>}
       {path && <button type="button" className="activity-source" onClick={() => onOpenSource(path)}>Open current file: <span>{path}</span></button>}
     </article>
   );

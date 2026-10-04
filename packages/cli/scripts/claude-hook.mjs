@@ -12,16 +12,26 @@ if (observerUrl && token) {
         if (input.length > 262_144) break;
       }
       if (input.length <= 262_144) {
-        const { normalizeClaudeHook } = await import("../dist/activity/adapters/claude.js");
-        const event = normalizeClaudeHook(JSON.parse(input), process.env.CLAUDE_PROJECT_DIR || process.cwd());
-        if (event) {
+        const { normalizeClaudeHook, normalizeClaudeTeachingNote } = await import("../dist/activity/adapters/claude.js");
+        const { TEACHING_NOTE_INSTRUCTION } = await import("../dist/activity/teaching-note.js");
+        const hookInput = JSON.parse(input);
+        const repoRoot = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+        const teach = process.env.WALKTHROUGH_TEACH === "1";
+        if (teach && hookInput.hook_event_name === "SessionStart") {
+          process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: TEACHING_NOTE_INSTRUCTION } }) + "\n");
+        }
+        const send = async (event) => {
           await fetch(new URL("/activity/events", base), {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
             body: JSON.stringify(event),
             signal: AbortSignal.timeout(400),
           });
-        }
+        };
+        const event = normalizeClaudeHook(hookInput, repoRoot);
+        if (event) await send(event);
+        const note = normalizeClaudeTeachingNote(hookInput, repoRoot, teach);
+        if (note) await send(note);
       }
     }
   } catch {
