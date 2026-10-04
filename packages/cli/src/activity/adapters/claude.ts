@@ -1,6 +1,7 @@
 import { isAbsolute, relative, sep } from "node:path";
 import { isSensitivePath } from "../../explain/context.js";
 import type { ActivityEventInput } from "../types.js";
+import { parseTeachingNote } from "../teaching-note.js";
 
 type HookInput = Record<string, unknown>;
 
@@ -57,4 +58,16 @@ export function normalizeClaudeHook(input: unknown, repoRoot: string, at = new D
   } else return null;
 
   return { version: 1, sessionId, at, host: "claude", kind, phase, title, ...(path && { path }), ...(detail && { detail }) };
+}
+
+/** Opt-in agent-authored claim, separate from observed tool/session events. */
+export function normalizeClaudeTeachingNote(input: unknown, repoRoot: string, teach: boolean, at = new Date().toISOString()): ActivityEventInput | null {
+  if (!teach) return null;
+  const data = object(input);
+  if (data.hook_event_name !== "Stop" || typeof data.last_assistant_message !== "string") return null;
+  const sessionId = data.session_id;
+  if (typeof sessionId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(sessionId)) return null;
+  const note = parseTeachingNote(data.last_assistant_message, repoRoot);
+  if (!note) return null;
+  return { version: 1, sessionId, at, host: "claude", kind: "message", phase: "completed", title: "Agent said", path: note.path, detail: note.detail };
 }

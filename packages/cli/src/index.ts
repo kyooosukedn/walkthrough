@@ -25,6 +25,8 @@ const positional: string[] = [];
 for (let i = 0; i < args.length; i++) {
   if (args[i] === "--json") {
     flags.json = true;
+  } else if (args[i] === "--teach") {
+    flags.teach = true;
   } else if (args[i] === "--no-serve") {
     flags.noServe = true;
   } else if (args[i] === "--lesson-context") {
@@ -65,6 +67,7 @@ main().catch((err) => {
 
 async function main() {
   if (observing && (flags.host !== "claude" && flags.host !== "codex")) throw new Error("observe requires --host claude or --host codex.");
+  if (flags.teach && !observing) throw new Error("--teach requires observe.");
   if (observing && flags.host === "codex" && typeof flags.prompt !== "string") throw new Error("Codex observation requires --prompt.");
   if (observing && (flags.json || flags.noServe || flags.lessonContext)) throw new Error("observe needs the local viewer; remove --json, --no-serve, and --lesson-context.");
   if (typeof flags.lessonContext === "string") {
@@ -105,11 +108,11 @@ async function main() {
 
   // Serve
   const port = parseInt(String(flags.port || "3000"), 10);
-  await serve(codemap, port, observing ? { host: flags.host as "claude" | "codex", prompt: flags.prompt as string | undefined } : undefined);
+  await serve(codemap, port, observing ? { host: flags.host as "claude" | "codex", prompt: flags.prompt as string | undefined, teach: flags.teach === true } : undefined);
 }
 
 // ─── HTTP server ─────────────────────────────────────────────
-async function serve(codemap: Awaited<ReturnType<typeof scan>>, port: number, observe?: { host: "claude" | "codex"; prompt?: string }) {
+async function serve(codemap: Awaited<ReturnType<typeof scan>>, port: number, observe?: { host: "claude" | "codex"; prompt?: string; teach: boolean }) {
   const codemapJson = JSON.stringify(codemap, null, 2);
   const allowedPaths = scannedPaths(codemap.fileTree);
   const token = observe ? randomBytes(32).toString("hex") : undefined;
@@ -213,11 +216,11 @@ async function serve(codemap: Awaited<ReturnType<typeof scan>>, port: number, ob
   });
 }
 
-async function launchObservedHost(observe: { host: "claude" | "codex"; prompt?: string }, port: number, token: string) {
+async function launchObservedHost(observe: { host: "claude" | "codex"; prompt?: string; teach: boolean }, port: number, token: string) {
   const url = `http://127.0.0.1:${port}`;
   if (observe.host === "claude") {
     // Claude hooks post directly to the local collector.
-    await launchClaudeObserved({ repoRoot: targetPath, url, token });
+    await launchClaudeObserved({ repoRoot: targetPath, url, token, teach: observe.teach });
     return;
   }
   const { runCodexObserved } = await import("./activity/adapters/codex-runner.js");
@@ -230,12 +233,12 @@ async function launchObservedHost(observe: { host: "claude" | "codex"; prompt?: 
     }).catch((error) => console.error(`  ✗ Activity event delivery failed: ${error instanceof Error ? error.message : String(error)}`));
   };
   console.log("  ◆ Starting one Codex CLI task. Activity stays local.");
-  const result = await runCodexObserved({ repoRoot: targetPath, prompt: observe.prompt!, sessionId, emit });
+  const result = await runCodexObserved({ repoRoot: targetPath, prompt: observe.prompt!, teach: observe.teach, sessionId, emit });
   await pending;
   console.log(`  Codex exited (${result.exitCode ?? "signal"}). Activity remains visible until Walkthrough stops.`);
 }
 
-async function launchClaudeObserved({ repoRoot, url, token }: { repoRoot: string; url: string; token: string }): Promise<void> {
+async function launchClaudeObserved({ repoRoot, url, token, teach }: { repoRoot: string; url: string; token: string; teach: boolean }): Promise<void> {
   const packageRoot = resolve(import.meta.dirname ?? ".", "..");
   const pluginRoot = join(packageRoot, "plugin");
   if (!existsSync(join(pluginRoot, ".claude-plugin", "plugin.json")) || !existsSync(join(pluginRoot, "hooks", "hooks.json")) || !existsSync(join(packageRoot, "scripts", "claude-hook.mjs"))) {
@@ -244,7 +247,7 @@ async function launchClaudeObserved({ repoRoot, url, token }: { repoRoot: string
   console.log("  ◆ Starting Claude Code in target repo. Activity stays local.");
   const child = spawn(claudeExecutable(), ["--plugin-dir", pluginRoot], {
     cwd: repoRoot,
-    env: { ...process.env, WALKTHROUGH_ACTIVITY_URL: url, WALKTHROUGH_ACTIVITY_TOKEN: token },
+    env: { ...process.env, WALKTHROUGH_ACTIVITY_URL: url, WALKTHROUGH_ACTIVITY_TOKEN: token, ...(teach ? { WALKTHROUGH_TEACH: "1" } : { WALKTHROUGH_TEACH: "0" }) },
     stdio: "inherit",
     shell: false,
   });
@@ -302,6 +305,7 @@ Options:
   --no-serve            Write JSON and exit
   --host <name>         Agent host for observed session: claude or codex
   --prompt <task>       Required task for non-interactive Codex observation
+  --teach               Ask observed agent for a short source-linked teaching note
   --lesson-context <file>  Print bounded source evidence as JSON for an AI lesson
   -h, --help            Show this help
 

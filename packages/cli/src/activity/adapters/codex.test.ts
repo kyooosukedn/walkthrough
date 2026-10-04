@@ -83,3 +83,16 @@ test("teach mode never emits marked reasoning or messages from failed turns", ()
     ]);
   } finally { rmSync(repoRoot, { recursive: true, force: true }); }
 });
+
+test("teach mode discards an earlier note when the final agent message has none", () => {
+  const repoRoot = mkdtempSync(join(tmpdir(), "walkthrough-codex-note-"));
+  try {
+    writeFileSync(join(repoRoot, "entry.ts"), "export const ready = true;\n");
+    const events: ActivityEventInput[] = [];
+    const adapter = createCodexEventAdapter({ sessionId: "session-1", repoRoot, teach: true, emit: (event) => { events.push(event); } });
+    adapter.write(JSON.stringify({ type: "item.completed", item: { type: "agent_message", text: "WALKTHROUGH_NOTE: entry.ts | Early claim." } }) + "\n");
+    adapter.write(JSON.stringify({ type: "item.completed", item: { type: "agent_message", text: "Final answer without a note." } }) + "\n");
+    adapter.write('{"type":"turn.completed"}\n');
+    assert.deepEqual(events.map(({ kind, title }) => ({ kind, title })), [{ kind: "session", title: "Codex turn completed" }]);
+  } finally { rmSync(repoRoot, { recursive: true, force: true }); }
+});

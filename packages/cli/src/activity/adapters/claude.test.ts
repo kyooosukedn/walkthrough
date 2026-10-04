@@ -1,7 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
-import { normalizeClaudeHook } from "./claude.js";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { normalizeClaudeHook, normalizeClaudeTeachingNote } from "./claude.js";
 
 const root = join(process.cwd(), "fixture-repo");
 const base = { session_id: "abc-123", cwd: root };
@@ -40,4 +42,18 @@ test("unknown tools have generic names and malformed sessions are dropped", () =
   assert.equal(normalize({ hook_event_name: "PostToolUseFailure", tool_name: "mcp__private", error: "secret" })?.title, "Tool failed");
   assert.equal(normalize({ hook_event_name: "PostToolUse", tool_name: "Bash", session_id: "unsafe/session" }), null);
   assert.equal(normalize({ hook_event_name: "PreToolUse", tool_name: "Bash" }), null);
+});
+
+test("only explicit teaching mode extracts a cited final Claude message", () => {
+  const repo = mkdtempSync(join(tmpdir(), "walkthrough-claude-teach-"));
+  try {
+    writeFileSync(join(repo, "main.ts"), "export const ready = true;");
+    const input = { session_id: "abc-123", hook_event_name: "Stop", last_assistant_message: "Done.\nWALKTHROUGH_NOTE: main.ts | This file defines the startup flag." };
+    assert.equal(normalizeClaudeTeachingNote(input, repo, false), null);
+    assert.deepEqual(normalizeClaudeTeachingNote(input, repo, true, "2026-10-04T12:00:00.000Z"), {
+      version: 1, sessionId: "abc-123", at: "2026-10-04T12:00:00.000Z", host: "claude", kind: "message", phase: "completed", title: "Agent said", path: "main.ts", detail: "This file defines the startup flag.",
+    });
+    assert.equal(normalizeClaudeTeachingNote({ ...input, last_assistant_message: "WALKTHROUGH_NOTE: ../secret | leak" }, repo, true), null);
+    assert.equal(normalizeClaudeTeachingNote({ ...input, hook_event_name: "PostToolUse" }, repo, true), null);
+  } finally { rmSync(repo, { recursive: true, force: true }); }
 });

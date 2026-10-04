@@ -80,7 +80,7 @@ export function createCodexEventAdapter({ sessionId, repoRoot, teach = false, em
           const failed = item.status === "failed";
           send("tool", failed ? "failed" : "completed", failed ? "Tool failed" : "Tool completed");
         } else if (teach && item.type === "agent_message" && typeof item.text === "string") {
-          pendingNote = parseTeachingNote(item.text, repoRoot) ?? pendingNote;
+          pendingNote = parseTeachingNote(item.text, repoRoot);
         }
         return;
       default:
