@@ -241,7 +241,7 @@ async function launchClaudeObserved({ repoRoot, url, token }: { repoRoot: string
   if (!existsSync(join(pluginRoot, ".claude-plugin", "plugin.json")) || !existsSync(join(pluginRoot, "hooks", "hooks.json")) || !existsSync(join(packageRoot, "scripts", "claude-hook.mjs"))) {
     throw new Error("Claude observer files are missing from this CLI install. Reinstall Walkthrough and retry.");
   }
-  console.log("  ◆ Starting Claude Code in observed checkout. Activity stays local.");
+  console.log("  ◆ Starting Claude Code in target repo. Activity stays local.");
   const child = spawn(claudeExecutable(), ["--plugin-dir", pluginRoot], {
     cwd: repoRoot,
     env: { ...process.env, WALKTHROUGH_ACTIVITY_URL: url, WALKTHROUGH_ACTIVITY_TOKEN: token },

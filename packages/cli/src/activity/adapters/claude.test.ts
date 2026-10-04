@@ -12,6 +12,8 @@ test("session lifecycle reports only observed state", () => {
     version: 1, sessionId: "abc-123", at: "2026-10-04T12:00:00.000Z", host: "claude", kind: "session", phase: "started", title: "Claude session started",
   });
   assert.equal(normalize({ hook_event_name: "Stop", last_assistant_message: "private" })?.title, "Claude response completed");
+  assert.equal(normalize({ hook_event_name: "SessionStart", source: "resume" })?.title, "Claude session resumed");
+  assert.equal(normalize({ hook_event_name: "SessionStart", source: "compact" })?.title, "Claude session continued after compaction");
 });
 
 test("file edit emits repo-relative path but never source content", () => {
