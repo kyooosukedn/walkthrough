@@ -14,6 +14,15 @@ Your browser opens to a repo orientation screen. Pick a real file or search by p
 
 **Want a guided lesson without a separate AI key?** Use the [Codex or Claude Code companion](./docs/AGENT_COMPANION.md). Name a file you found; Walkthrough supplies bounded source context, and your assistant explains it in chat. The browser's **Explain this file** button remains the separate DeepSeek option below.
 
+**Want to watch an agent work?** From a built Walkthrough checkout, run one of these commands and open **Watch agent activity** in the browser:
+
+```bash
+node packages/cli/dist/index.js observe ./path/to/project --host claude
+node packages/cli/dist/index.js observe ./path/to/project --host codex --prompt "Describe the main entry point"
+```
+
+Claude opens an interactive terminal. Codex runs one non-interactive task. The activity feed shows completed actions and current source files, labeled **Observed**; it does not show private reasoning or full command output. It needs no separate DeepSeek key. Setup, limits, and how the two hosts differ are in the [agent companion guide](./docs/AGENT_COMPANION.md#watch-an-agent-work-in-the-browser).
+
 To get a guided explanation of a file, configure a DeepSeek API key in the terminal that starts Walkthrough:
 
 ```bash
@@ -81,6 +90,7 @@ Single-threaded Node, no cache, cold start included (Windows 11, Ryzen 7 5700U):
 - [x] Read-only preview of scanned UTF-8 files on the local CLI server
 - [x] On-demand AI explanation beside code, with validated source citations
 - [x] File-led learning trail with backtracking and session-only explanation cache
+- [x] Opt-in local activity feed for Claude Code and Codex CLI sessions started through Walkthrough
 - [x] Conventional Python, Go, and Rust entry-file suggestions
 - [x] Routes view (Next.js App Router + Pages Router analyzers)
 - [x] Component tree view (React analyzer: PascalCase exports, pages, who-imports-whom)

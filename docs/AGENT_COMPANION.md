@@ -29,3 +29,20 @@ The output is JSON. It includes selected source, up to three related import file
 The context is limited to six files and 48,000 source characters. Common secret paths and private-key content are blocked, but the filter cannot identify every secret inside ordinary source. Review the packet before using it with sensitive code. The assistant host receives these excerpts under its own account and data policy. In this mode Walkthrough makes no separate DeepSeek request and writes no `codemap.json`.
 
 The browser's **Explain this file** button still uses the optional DeepSeek integration. A direct browser-to-Codex or browser-to-Claude handoff is a separate feature; this companion teaches in chat today.
+
+## Watch an agent work in the browser
+
+First build Walkthrough from this checkout with `npm install` and `npm run build`. Then start a new, explicitly observed session:
+
+```bash
+node packages/cli/dist/index.js observe ./path/to/project --host claude
+node packages/cli/dist/index.js observe ./path/to/project --host codex --prompt "Find the main entry point and explain it"
+```
+
+The first command opens interactive Claude Code in the target directory. The second runs one non-interactive Codex CLI task. Both require their respective CLI installed and signed in. Walkthrough opens a local browser page; click **Watch agent activity**. Keep the Walkthrough terminal open while you watch. A browser refresh replays up to 500 retained events. Closing the browser does not interrupt the agent.
+
+For Codex, use a Git checkout as the target. `codex exec` exits before starting a turn when its checkout check fails; the feed reports that exit, but cannot show the host's private stderr.
+
+Each card says what the host reported doing and whether it completed or failed. **Observed** means a host event or tool result, not an independent test of correctness. **Agent said** is reserved for host-authored messages when an adapter supplies them. Open a linked file to see its *current* contents; this is not a per-action diff. New files created during the session are available after the collector accepts the file event. The collector, feed, and source preview run on loopback and stay in memory; Walkthrough does not send activity to a cloud service or need a DeepSeek key for this view.
+
+This first release observes sessions started by these commands. It cannot attach to an existing Codex Desktop chat or arbitrary agent process. It omits raw prompts, command text and output, full environment variables, private reasoning, and files outside the checkout. Claude hooks report tool events from Claude Code; Codex events come from `codex exec --json` and therefore cannot make the session interactive. The Claude observer plugin currently requires a built Walkthrough source checkout, rather than an npm-only install. Ordinary `walkthrough <repo>` scans without starting an agent or showing the activity tab.

@@ -40,6 +40,7 @@ describe("activity stream state", () => {
     const callbacks: Record<string, (message: MessageEvent) => void> = {};
     const source = {
       onopen: null as null | (() => void), onerror: null as null | (() => void),
+      readyState: 0,
       addEventListener: vi.fn((name: string, listener: (message: MessageEvent) => void) => { callbacks[name] = listener; }),
       close: vi.fn(),
     };
@@ -51,8 +52,10 @@ describe("activity stream state", () => {
     source.onopen?.();
     callbacks.activity({ data: JSON.stringify(event(1)) } as MessageEvent);
     source.onerror?.();
+    source.readyState = 2;
+    source.onerror?.();
     expect(onEvent).toHaveBeenCalledWith(event(1));
-    expect(onConnection.mock.calls.map(([value]) => value)).toEqual(["connected", "reconnecting"]);
+    expect(onConnection.mock.calls.map(([value]) => value)).toEqual(["connected", "reconnecting", "unavailable"]);
     stop();
     expect(source.close).toHaveBeenCalledOnce();
   });

@@ -13,7 +13,7 @@ export function connectActivityStream(
 ): () => void {
   const source = factory("/activity/stream");
   source.onopen = () => onConnection("connected");
-  source.onerror = () => onConnection("reconnecting");
+  source.onerror = () => onConnection(source.readyState === 2 ? "unavailable" : "reconnecting");
   source.addEventListener("activity", (message) => {
     const event = parseActivityEvent((message as MessageEvent).data);
     if (event) onEvent(event);
@@ -43,7 +43,7 @@ const connectionCopy: Record<ActivityConnection, string> = {
   connecting: "Connecting to activity…",
   connected: "Connected to live activity",
   reconnecting: "Connection lost. Reconnecting; saved activity remains below.",
-  unavailable: "Live activity is unavailable in this browser.",
+  unavailable: "Live activity is unavailable. Refresh the page to reconnect.",
 };
 
 export function ActivityTimeline({ state, connection = "connected", onOpenSource }: {

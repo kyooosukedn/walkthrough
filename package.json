@@ -14,7 +14,7 @@
     "dev": "npm run dev --workspace=@walkthrough/visualizer",
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "test": "npm run test --workspace=@walkthrough/scanner && npm run test --workspace=@walkthrough/visualizer && npm run build:cli && node --test packages/cli/dist/*.test.js packages/cli/dist/explain/*.test.js",
+    "test": "npm run test --workspace=@walkthrough/scanner && npm run test --workspace=@walkthrough/visualizer && npm run build:cli && node --test packages/cli/dist/*.test.js packages/cli/dist/explain/*.test.js packages/cli/dist/activity/*.test.js packages/cli/dist/activity/adapters/*.test.js",
     "clean": "npm run clean --workspaces --if-present && rm -rf node_modules"
   },
   "engines": {

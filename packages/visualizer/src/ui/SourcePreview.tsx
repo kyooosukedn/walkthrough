@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { FileExplanationPanel, type FileExplanation } from "../explain/FileExplanationPanel.js";
 import type { Journey } from "../journey/state.js";
 
-export function SourcePreview({ path, line, journey, cachedExplanation, onBack, onOpenSource, onFollowNext, onJump, onExplanation }: {
+export function SourcePreview({ path, line, journey, cachedExplanation, onBack, backLabel = "← Repo overview", onOpenSource, onFollowNext, onJump, onExplanation }: {
   path: string;
   line?: number;
   journey: Journey;
   cachedExplanation: FileExplanation | null;
   onBack: () => void;
+  backLabel?: string;
   onOpenSource: (path: string, line?: number) => void;
   onFollowNext: (path: string, line: number, reason: string) => void;
   onJump: (index: number) => void;
@@ -76,7 +77,7 @@ export function SourcePreview({ path, line, journey, cachedExplanation, onBack, 
   }
 
   return <main className="source-preview">
-    <header><button onClick={onBack}>← Repo overview</button><strong>{path}</strong></header>
+    <header><button onClick={onBack}>{backLabel}</button><strong>{path}</strong></header>
     <nav className="learning-journey" aria-label="Learning journey">
       <div className="learning-journey-heading"><strong>Follow the code</strong><span>Step {journey.activeIndex + 1} of {journey.steps.length}</span></div>
       <ol>
