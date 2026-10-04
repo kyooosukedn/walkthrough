@@ -29,7 +29,7 @@ export function deriveOrientation(tree: FileTreeNode): RepoOrientation {
       || node.path.toLowerCase().startsWith("docs/") && /\.(md|mdx|rst|txt)$/i.test(node.name);
     if (isDoc) result.docs.push(node.path);
     if (MANIFESTS.has(name)) result.manifests.push(node.path);
-    if (inTests || /(^test[_-]|[._-](test|spec)\.)/i.test(node.name)) result.tests.push(node.path);
+    if (!isDoc && (inTests || /(^test[_-]|[._-](test|spec)\.)/i.test(node.name))) result.tests.push(node.path);
   }
 
   visit(tree, false);

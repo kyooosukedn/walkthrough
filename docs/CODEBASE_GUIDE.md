@@ -21,6 +21,8 @@ packages/visualizer/src/ui/WelcomeScreen.tsx
   → landmarks, entry-file suggestions, path search
 packages/visualizer/src/ui/SourcePreview.tsx
   → source and explicit Explain action
+packages/visualizer/src/journey/state.ts
+  → selected-file trail, backward jumps, and branches
 packages/cli/src/explain/context.ts → handler.ts → provider.ts
   → bounded source evidence, local request checks, DeepSeek call
 ```
@@ -34,6 +36,8 @@ The scanner and browser share a JSON contract. The scanner's types live in [`pac
 [`WelcomeScreen.tsx`](../packages/visualizer/src/ui/WelcomeScreen.tsx) renders the groups, a small set of suggestions, and path search. Search filters the in-memory file list and caps visible matches. Clicking a file switches [`App.tsx`](../packages/visualizer/src/App.tsx) to a read-only preview. [`source.ts`](../packages/cli/src/source.ts) permits only scanned paths inside the checkout, rejects binary and large files, and returns plain UTF-8 text. The local server binds to loopback in [`index.ts`](../packages/cli/src/index.ts).
 
 [`SourcePreview.tsx`](../packages/visualizer/src/ui/SourcePreview.tsx) fetches source on opening a file. Its **Explain this file** button is the only trigger for `POST /explain`. [`context.ts`](../packages/cli/src/explain/context.ts) reads a bounded set of scanned paths through the same contained source reader and excludes common secret files. [`handler.ts`](../packages/cli/src/explain/handler.ts) checks the local request, calls the configured provider, and validates every clickable file/line citation against the actual evidence. [`provider.ts`](../packages/cli/src/explain/provider.ts) calls DeepSeek's JSON chat endpoint. The key stays in the CLI process. Without `DEEPSEEK_API_KEY`, preview still works and Explain shows a setup message. A matching test or nearby README helps orient languages without import analysis; the tool does not claim a complete call graph for those languages.
+
+The selected file starts a learning trail in [`App.tsx`](../packages/visualizer/src/App.tsx). [`journey/state.ts`](../packages/visualizer/src/journey/state.ts) handles following a suggested file, jumping back, and branching from an earlier step. The browser keeps successful explanations in memory by file path, so returning to a step does not ask DeepSeek again. A citation to the current file moves to its line without adding a duplicate step. Only **Explain this file** makes a new AI request.
 
 Other analyzers are deeper but narrower. [`nextjs-routes.ts`](../packages/scanner/src/analyzers/nextjs-routes.ts) and [`express-routes.ts`](../packages/scanner/src/analyzers/express-routes.ts) detect some JavaScript routes; [`react-components.ts`](../packages/scanner/src/analyzers/react-components.ts) and [`database.ts`](../packages/scanner/src/analyzers/database.ts) add specialized views. [`tour-generator.ts`](../packages/scanner/src/analyzers/tour-generator.ts) creates the older architecture tour. None of these is a universal or exact runtime call graph.
 
@@ -52,4 +56,4 @@ On the first screen, search for `orientation.ts`, open it, and find `deriveOrien
 
 ## What is still missing
 
-This screen helps you find files and get a cited explanation plus one small exercise. It does not yet verify your exercise or trace a complete backend or frontend workflow. The first-run decision and build plan are in [`docs/product/first-run-journey.md`](./product/first-run-journey.md) and [`docs/superpowers/plans/2026-10-02-universal-onramp.md`](./superpowers/plans/2026-10-02-universal-onramp.md).
+This screen helps you find files, follow a source-linked trail, and get a cited explanation plus one small exercise at each file. It does not yet verify your exercise or trace a complete backend or frontend workflow. The first-run decision is in [`docs/product/first-run-journey.md`](./product/first-run-journey.md); the file-led journey is specified in [`docs/superpowers/specs/2026-10-03-file-led-journey-design.md`](./superpowers/specs/2026-10-03-file-led-journey-design.md).

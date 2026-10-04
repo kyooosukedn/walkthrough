@@ -1,24 +1,35 @@
 import { useEffect, useRef, useState } from "react";
 import { FileExplanationPanel, type FileExplanation } from "../explain/FileExplanationPanel.js";
+import type { Journey } from "../journey/state.js";
 
-export function SourcePreview({ path, line, onBack, onOpenSource }: {
+export function SourcePreview({ path, line, journey, cachedExplanation, onBack, onOpenSource, onFollowNext, onJump, onExplanation }: {
   path: string;
   line?: number;
+  journey: Journey;
+  cachedExplanation: FileExplanation | null;
   onBack: () => void;
   onOpenSource: (path: string, line?: number) => void;
+  onFollowNext: (path: string, line: number, reason: string) => void;
+  onJump: (index: number) => void;
+  onExplanation: (path: string, explanation: FileExplanation) => void;
 }) {
   const [source, setSource] = useState<string | null>(null);
   const [sourceError, setSourceError] = useState<string | null>(null);
-  const [explanation, setExplanation] = useState<FileExplanation | null>(null);
+  const [explanation, setExplanation] = useState<FileExplanation | null>(cachedExplanation);
   const [explainError, setExplainError] = useState<string | null>(null);
   const [explaining, setExplaining] = useState(false);
   const explainRequest = useRef<AbortController | null>(null);
+  const activeStepButton = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    activeStepButton.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [journey.activeIndex, path]);
 
   useEffect(() => {
     explainRequest.current?.abort();
     setSource(null);
     setSourceError(null);
-    setExplanation(null);
+    setExplanation(cachedExplanation);
     setExplainError(null);
     setExplaining(false);
     const controller = new AbortController();
@@ -56,6 +67,7 @@ export function SourcePreview({ path, line, onBack, onOpenSource }: {
       if (controller.signal.aborted) return;
       if (!response.ok) throw new Error(typeof result.error === "string" ? result.error : "Could not explain this file.");
       setExplanation(result as FileExplanation);
+      onExplanation(path, result as FileExplanation);
     } catch (error) {
       if (!controller.signal.aborted) setExplainError(error instanceof Error ? error.message : "Could not explain this file.");
     } finally {
@@ -65,6 +77,17 @@ export function SourcePreview({ path, line, onBack, onOpenSource }: {
 
   return <main className="source-preview">
     <header><button onClick={onBack}>← Repo overview</button><strong>{path}</strong></header>
+    <nav className="learning-journey" aria-label="Learning journey">
+      <div className="learning-journey-heading"><strong>Follow the code</strong><span>Step {journey.activeIndex + 1} of {journey.steps.length}</span></div>
+      <ol>
+        {journey.steps.map((step, index) => <li key={`${index}-${step.path}`}>
+          <button type="button" ref={index === journey.activeIndex ? activeStepButton : undefined} onClick={() => onJump(index)} aria-current={index === journey.activeIndex ? "step" : undefined} title={step.path}>
+            <span className="learning-journey-number">{index + 1}</span>
+            <span className="learning-journey-label"><strong>{step.path}</strong><small>{step.reason ?? (index === 0 ? "Starting file" : "Source file")}</small></span>
+          </button>
+        </li>)}
+      </ol>
+    </nav>
     <div className="source-actions">
       <button onClick={() => void explain()} disabled={explaining || source === null || !!sourceError}>{explaining ? "Explaining…" : "Explain this file"}</button>
       <span>Clicking sends selected source snippets to your configured AI provider. Previewing alone does not.</span>
@@ -77,7 +100,7 @@ export function SourcePreview({ path, line, onBack, onOpenSource }: {
       {(explaining || explainError || explanation) && <div className="source-explanation" aria-live="polite">
         {explaining && <p>Reading this file and its nearby evidence…</p>}
         {explainError && <p role="alert">{explainError}</p>}
-        {explanation && <FileExplanationPanel explanation={explanation} onOpenSource={onOpenSource} />}
+        {explanation && <FileExplanationPanel explanation={explanation} onOpenSource={onOpenSource} onFollowNext={onFollowNext} />}
       </div>}
     </div>
   </main>;

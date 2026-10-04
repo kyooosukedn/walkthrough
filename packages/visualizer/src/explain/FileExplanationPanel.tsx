@@ -8,9 +8,10 @@ export interface FileExplanation {
   sourcesUsed: string[];
 }
 
-export function FileExplanationPanel({ explanation, onOpenSource }: {
+export function FileExplanationPanel({ explanation, onOpenSource, onFollowNext }: {
   explanation: FileExplanation;
   onOpenSource: (path: string, line?: number) => void;
+  onFollowNext: (path: string, line: number, reason: string) => void;
 }) {
   return <aside className="explanation-panel" aria-label="AI file explanation">
     <h2>{explanation.title}</h2>
@@ -25,7 +26,7 @@ export function FileExplanationPanel({ explanation, onOpenSource }: {
       </div> : <small>No source citation for this section; verify this claim in the code.</small>}
     </section>)}
     {explanation.nextFiles.length > 0 && <section><h3>Read next</h3>{explanation.nextFiles.map((file, index) => <p key={index}>
-      <button onClick={() => onOpenSource(file.path, file.line)}>{file.path}:{file.line}</button> — {file.reason}
+      <button onClick={() => onFollowNext(file.path, file.line, file.reason)}>{file.path}:{file.line}</button> — {file.reason}
     </p>)}</section>}
     <section><h3>Try it</h3><p>{explanation.exercise}</p></section>
     {explanation.unknowns.length > 0 && <section><h3>What this source cannot tell us</h3><ul>{explanation.unknowns.map((unknown, index) => <li key={index}>{unknown}</li>)}</ul></section>}

@@ -60,6 +60,7 @@ test("evidence never exceeds the source character budget", async () => {
     assert.ok(bundle.files[0].content.length > 0);
     assert.ok(bundle.files.reduce((sum, file) => sum + file.content.length, 0) <= 48_000);
     assert.ok(bundle.files.length <= 6);
+    assert.equal(bundle.files[0].truncated, true);
   });
 });
 

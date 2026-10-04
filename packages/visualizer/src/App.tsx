@@ -9,6 +9,8 @@ import { SourcePreview } from "./ui/SourcePreview.js";
 import { TourSidebar } from "./tour/TourSidebar.js";
 import { NarrationPanel } from "./tour/NarrationPanel.js";
 import { TourEngine, type TourState } from "./tour/TourEngine.js";
+import { followJourney, jumpJourney, startJourney, type Journey } from "./journey/state.js";
+import type { FileExplanation } from "./explain/FileExplanationPanel.js";
 
 // Graph views pull heavy deps (React Flow, elkjs, framer-motion) — the
 // welcome screen ships without them, so first paint stays small.
@@ -33,12 +35,27 @@ function AppContent() {
   const [activeView, setActiveView] = useState("overview");
   const [tourEngine, setTourEngine] = useState<TourEngine | null>(null);
   const [tourState, setTourState] = useState<TourState | null>(null);
-  const [sourcePath, setSourcePath] = useState<string | null>(null);
-  const [sourceLine, setSourceLine] = useState<number | undefined>();
+  const [journey, setJourney] = useState<Journey | null>(null);
+  const [explanations, setExplanations] = useState<Record<string, FileExplanation>>({});
   const openSource = useCallback((path: string, line?: number) => {
-    setSourcePath(path);
-    setSourceLine(line);
+    setJourney(startJourney(path, line));
     setMode("source");
+  }, []);
+  const followSource = useCallback((path: string, line?: number, reason?: string) => {
+    setJourney((current) => current
+      ? followJourney(current, { path, line, reason })
+      : startJourney(path, line));
+    setMode("source");
+  }, []);
+  const openCitation = useCallback((path: string, line?: number) => {
+    followSource(path, line, "Source citation");
+  }, [followSource]);
+  const returnToOverview = useCallback(() => {
+    setJourney(null);
+    setMode("welcome");
+  }, []);
+  const saveExplanation = useCallback((path: string, explanation: FileExplanation) => {
+    setExplanations((current) => ({ ...current, [path]: explanation }));
   }, []);
 
   const handleStartTour = useCallback(() => {
@@ -100,8 +117,20 @@ function AppContent() {
 
   if (!data) return null;
 
-  if (mode === "source" && sourcePath) {
-    return <SourcePreview path={sourcePath} line={sourceLine} onBack={() => setMode("welcome")} onOpenSource={openSource} />;
+  if (mode === "source" && journey) {
+    const step = journey.steps[journey.activeIndex];
+    return <SourcePreview
+      key={step.path}
+      path={step.path}
+      line={step.line}
+      journey={journey}
+      cachedExplanation={explanations[step.path] ?? null}
+      onBack={returnToOverview}
+      onOpenSource={openCitation}
+      onFollowNext={followSource}
+      onJump={(index) => setJourney((current) => current ? jumpJourney(current, index) : current)}
+      onExplanation={saveExplanation}
+    />;
   }
 
   // Welcome screen

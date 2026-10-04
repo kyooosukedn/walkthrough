@@ -10,6 +10,7 @@ import { scan, writeCodeMap } from "@walkthrough/scanner";
 import { readSource, SourceError } from "./source.js";
 import { createExplainHandler } from "./explain/handler.js";
 import { createDeepSeekProviderFromEnv } from "./explain/provider.js";
+import { buildLessonContext, scannedPaths } from "./agent/context.js";
 
 const args = process.argv.slice(2);
 
@@ -22,6 +23,12 @@ for (let i = 0; i < args.length; i++) {
     flags.json = true;
   } else if (args[i] === "--no-serve") {
     flags.noServe = true;
+  } else if (args[i] === "--lesson-context") {
+    if (!args[i + 1] || args[i + 1].startsWith("-")) {
+      console.error("✗ --lesson-context requires a repo-relative file path.");
+      process.exit(1);
+    }
+    flags.lessonContext = args[++i];
   } else if (args[i] === "--output" && args[i + 1]) {
     flags.output = args[++i];
   } else if (args[i] === "--port" && args[i + 1]) {
@@ -48,6 +55,12 @@ main().catch((err) => {
 });
 
 async function main() {
+  if (typeof flags.lessonContext === "string") {
+    const codemap = await scan(targetPath);
+    const packet = await buildLessonContext(targetPath, flags.lessonContext, codemap);
+    process.stdout.write(JSON.stringify(packet, null, 2) + "\n");
+    return;
+  }
   console.log(`◆ Walkthrough — scanning ${targetPath}`);
 
   // Scan
@@ -86,12 +99,7 @@ async function main() {
 // ─── HTTP server ─────────────────────────────────────────────
 async function serve(codemap: Awaited<ReturnType<typeof scan>>, port: number) {
   const codemapJson = JSON.stringify(codemap, null, 2);
-  const allowedPaths = new Set<string>();
-  function collectFiles(node: typeof codemap.fileTree): void {
-    if (node.type === "file") allowedPaths.add(node.path);
-    else for (const child of node.children ?? []) collectFiles(child);
-  }
-  collectFiles(codemap.fileTree);
+  const allowedPaths = scannedPaths(codemap.fileTree);
   const explain = createExplainHandler({
     rootPath: targetPath,
     allowedPaths,
@@ -203,6 +211,7 @@ Options:
   --output <path>       Write JSON to custom path
   --port <number>       Dev server port (default: 3000)
   --no-serve            Write JSON and exit
+  --lesson-context <file>  Print bounded source evidence as JSON for an AI lesson
   -h, --help            Show this help
 
 Examples:

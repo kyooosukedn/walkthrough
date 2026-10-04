@@ -12,6 +12,8 @@ npx walkthrough-cli ./path/to/your/project
 
 Your browser opens to a repo orientation screen. Pick a real file or search by path. The architecture tour remains available as an optional view.
 
+**Want a guided lesson without a separate AI key?** Use the [Codex or Claude Code companion](./docs/AGENT_COMPANION.md). Name a file you found; Walkthrough supplies bounded source context, and your assistant explains it in chat. The browser's **Explain this file** button remains the separate DeepSeek option below.
+
 To get a guided explanation of a file, configure a DeepSeek API key in the terminal that starts Walkthrough:
 
 ```bash
@@ -20,6 +22,8 @@ npx walkthrough-cli ./path/to/your/project
 ```
 
 In PowerShell, use `$env:DEEPSEEK_API_KEY = "your-key"`. The default model is `deepseek-flash`; set `DEEPSEEK_MODEL` to another supported DeepSeek model if needed. Open a file and click **Explain this file**. The CLI then sends up to six scanned, non-secret source files (48,000 characters total) to DeepSeek. Scanning and ordinary preview make no AI request. The explanation cites files and lines you can open beside it. TypeScript/JavaScript import links may add relevant files; Python, Go, Rust, and other languages fall back to the selected file, matching test, and nearby documentation when found. AI explanations can be wrong; check the cited code.
+
+To follow the code, choose a file under **Read next**. Walkthrough opens it at the cited line and keeps a trail above the source. Click an earlier step to go back to its explanation without another AI request. Explaining the new file is still your choice. The trail lives only in this browser session; it is a path through the evidence Walkthrough found, not a complete runtime trace.
 ![Guided tour demo](docs/demo-tour.gif)
 
 *(Real run: a 573-file Next.js + Supabase project scanned in ~1.5 s — welcome, guided tour, then Routes / Components / Database views.)*
@@ -76,6 +80,7 @@ Single-threaded Node, no cache, cold start included (Windows 11, Ryzen 7 5700U):
 - [x] Universal repo orientation: docs, manifests, tests, source roots, and filename search
 - [x] Read-only preview of scanned UTF-8 files on the local CLI server
 - [x] On-demand AI explanation beside code, with validated source citations
+- [x] File-led learning trail with backtracking and session-only explanation cache
 - [x] Conventional Python, Go, and Rust entry-file suggestions
 - [x] Routes view (Next.js App Router + Pages Router analyzers)
 - [x] Component tree view (React analyzer: PascalCase exports, pages, who-imports-whom)
