@@ -9,7 +9,7 @@ import { createActivityCollector } from "./collector.js";
 
 const event = (overrides: Record<string, unknown> = {}) => ({ version: 1, sessionId: "session-1", at: "2026-10-04T12:00:00.000Z", host: "claude", kind: "file", phase: "completed", title: "Edited src/main.ts", path: "src/main.ts", ...overrides });
 
-async function fixture() {
+async function fixture({ simulateBackpressure = false }: { simulateBackpressure?: boolean } = {}) {
   const base = await mkdtemp(join(tmpdir(), "walkthrough-activity-"));
   const root = join(base, "repo");
   await mkdir(join(root, "src"), { recursive: true });
@@ -18,7 +18,13 @@ async function fixture() {
   await writeFile(join(base, "outside.ts"), "outside\n");
   const store = createActivityStore({ maxEvents: 2 });
   const collector = createActivityCollector({ repoRoot: root, token: "test-token", store });
-  const server = createServer(collector.handler);
+  const server = createServer((req, res) => {
+    if (simulateBackpressure && req.url === "/activity/stream") {
+      const write = res.write.bind(res);
+      res.write = ((chunk: string) => { write(chunk); return false; }) as typeof res.write;
+    }
+    collector.handler(req, res);
+  });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("Missing server address");
@@ -46,12 +52,14 @@ test("collector authenticates posts and assigns ordered bounded sequences", asyn
 test("collector rejects oversized and unsafe payloads without storing them", async () => {
   const fx = await fixture();
   try {
-    for (const bad of [event({ path: "../outside.ts" }), event({ path: ".env" }), event({ path: "C:/outside.ts" }), event({ path: "src/missing.ts" }), event({ title: "x".repeat(201) }), event({ detail: "x".repeat(2001) }), event({ detail: "API_KEY=secret-value" }), event({ rawPrompt: "secret" })]) {
+    for (const bad of [event({ path: "../outside.ts" }), event({ path: ".env" }), event({ path: "C:/outside.ts" }), event({ path: "src/missing.ts" }), event({ title: "x".repeat(201) }), event({ detail: "x".repeat(2001) }), event({ detail: "API_KEY=secret-value" }), event({ detail: "OPENAI_API_KEY=secret-value" }), event({ detail: "AWS_SECRET_ACCESS_KEY=secret-value" }), event({ rawPrompt: "secret" })]) {
       assert.equal((await post(fx.url, bad)).status, 400);
     }
     try {
       await symlink(join(fx.base, "outside.ts"), join(fx.root, "src/link.ts"));
       assert.equal((await post(fx.url, event({ path: "src/link.ts" }))).status, 400);
+      await symlink(join(fx.root, ".env"), join(fx.root, "src/config.ts"));
+      assert.equal((await post(fx.url, event({ path: "src/config.ts" }))).status, 400);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "EPERM") throw error;
     }
@@ -105,5 +113,19 @@ test("connected viewer receives an event posted later", async () => {
     const chunk = await read;
     assert.match(new TextDecoder().decode(chunk.value), /Live edit/);
     await reader.cancel();
+  } finally { await fx.close(); }
+});
+
+test("collector disconnects a viewer that cannot accept another event", async () => {
+  const fx = await fixture({ simulateBackpressure: true });
+  try {
+    const cookie = fx.collector.viewerCookie().split(";")[0];
+    const response = await fetch(fx.url + "/activity/stream", { headers: { Cookie: cookie } });
+    const reader = response.body!.getReader();
+    assert.equal((await post(fx.url, event())).status, 201);
+    const first = await reader.read();
+    assert.match(new TextDecoder().decode(first.value), /Edited src\/main.ts/);
+    const closed = await Promise.race([reader.read().then((chunk) => chunk.done), new Promise<false>((resolve) => setTimeout(() => resolve(false), 500))]);
+    assert.equal(closed, true);
   } finally { await fx.close(); }
 });

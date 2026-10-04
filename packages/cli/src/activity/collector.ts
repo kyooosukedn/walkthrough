@@ -10,7 +10,7 @@ const MAX_BODY_BYTES = 8192;
 const MAX_TITLE = 200;
 const MAX_DETAIL = 2000;
 const COOKIE_NAME = "walkthrough_activity";
-const SECRET_TEXT = /-----BEGIN [A-Z ]*PRIVATE KEY-----|\b(?:api[_-]?key|access[_-]?token|password|secret)\s*[:=]\s*\S+|\bBearer\s+\S+|\bsk-[A-Za-z0-9_-]{12,}/i;
+const SECRET_TEXT = /-----BEGIN [A-Z ]*PRIVATE KEY-----|\b[A-Z0-9_-]*(?:API[_-]?KEY|SECRET(?:[_-]?ACCESS)?[_-]?KEY|ACCESS[_-]?TOKEN|PASSWORD|PRIVATE[_-]?KEY|SECRET)\s*[:=]\s*\S+|\bBearer\s+\S+|\bsk-[A-Za-z0-9_-]{12,}/i;
 const INPUT_FIELDS = new Set(["version", "sessionId", "at", "host", "kind", "phase", "title", "path", "detail", "sequence"]);
 
 export interface ActivityCollector {
@@ -66,6 +66,7 @@ async function checkedPath(repoRoot: string, path: unknown): Promise<string | un
   catch { throw new Error("Source path does not exist."); }
   const within = relative(root, target);
   if (!within || within === ".." || within.startsWith(".." + sep) || isAbsolute(within)) throw new Error("Source path leaves checkout.");
+  if (isSensitivePath(within.split(sep).join("/"))) throw new Error("Unsafe source path.");
   if (!(await stat(target)).isFile()) throw new Error("Source path is not a file.");
   return path;
 }
@@ -112,10 +113,23 @@ export function createActivityCollector({ repoRoot, token, store }: { repoRoot: 
       res.writeHead(200, { "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-store", Connection: "keep-alive", "X-Content-Type-Options": "nosniff" });
       res.flushHeaders();
       streams.add(res);
-      const unsubscribe = store.subscribe((event) => { res.write(`id: ${event.sequence}\nevent: activity\ndata: ${JSON.stringify(event)}\n\n`); });
-      for (const event of store.replay(after)) res.write(`id: ${event.sequence}\nevent: activity\ndata: ${JSON.stringify(event)}\n\n`);
-      const heartbeat = setInterval(() => { res.write(": keepalive\n\n"); }, 20_000);
-      req.on("close", () => { clearInterval(heartbeat); unsubscribe(); streams.delete(res); });
+      let active = true;
+      let heartbeat: NodeJS.Timeout | undefined;
+      let unsubscribe = () => {};
+      const disconnect = () => {
+        if (!active) return;
+        active = false;
+        if (heartbeat) clearInterval(heartbeat);
+        unsubscribe();
+        streams.delete(res);
+        res.end();
+      };
+      const write = (frame: string) => { if (active && !res.write(frame)) disconnect(); };
+      const send = (event: ReturnType<ActivityStore["append"]>) => write(`id: ${event.sequence}\nevent: activity\ndata: ${JSON.stringify(event)}\n\n`);
+      unsubscribe = store.subscribe(send);
+      for (const event of store.replay(after)) { send(event); if (!active) break; }
+      if (active) heartbeat = setInterval(() => write(": keepalive\n\n"), 20_000);
+      req.on("close", disconnect);
       return;
     }
     return respond(res, 404, "Not found.");

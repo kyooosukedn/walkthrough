@@ -1,6 +1,6 @@
 # Live agent activity implementation plan
 
-**Status:** Proposed for review. First-release display assumes completed tool actions and changed files are more useful than a full transcript; adjust if the user chooses otherwise.
+**Status:** In progress in [draft PR #6](https://github.com/kyooosukedn/walkthrough/pull/6). The first release shows completed tool actions and changed files instead of a full transcript.
 
 > **For agentic workers:** Use isolated worktrees and implement only the assigned task. Use `superpowers:executing-plans` or an equivalent test-first workflow. Do not revert another worker's edits.
 
