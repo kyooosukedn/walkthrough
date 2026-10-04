@@ -1,5 +1,6 @@
 import { isAbsolute, posix, win32 } from "node:path";
 import { isSensitivePath } from "../../explain/context.js";
+import { parseTeachingNote } from "../teaching-note.js";
 import type { ActivityEventInput } from "../types.js";
 
 const MAX_LINE_BYTES = 64 * 1024;
@@ -13,6 +14,7 @@ export interface CodexEventAdapter {
 export interface CodexAdapterOptions {
   sessionId: string;
   repoRoot: string;
+  teach?: boolean;
   emit(event: ActivityEventInput): void;
   now?: () => Date;
 }
@@ -34,11 +36,12 @@ function repoPath(value: unknown, repoRoot: string): string | undefined {
 }
 
 /** Normalize documented `codex exec --json` events. Raw commands, output, prompts, and model text never leave this boundary. */
-export function createCodexEventAdapter({ sessionId, repoRoot, emit, now = () => new Date() }: CodexAdapterOptions): CodexEventAdapter {
+export function createCodexEventAdapter({ sessionId, repoRoot, teach = false, emit, now = () => new Date() }: CodexAdapterOptions): CodexEventAdapter {
   const decoder = new TextDecoder();
   let pending = "";
   let pendingBytes = 0;
   let discarding = false;
+  let pendingNote: { path: string; detail: string } | null = null;
   const send = (kind: ActivityEventInput["kind"], phase: ActivityEventInput["phase"], title: string, path?: string, detail?: string) => {
     emit({ version: 1, sessionId, at: now().toISOString(), host: "codex", kind, phase, title, ...(path && { path }), ...(detail && { detail }) });
   };
@@ -50,12 +53,16 @@ export function createCodexEventAdapter({ sessionId, repoRoot, emit, now = () =>
     const item = object(parsed.item);
     switch (parsed.type) {
       case "thread.started":
+        pendingNote = null;
         send("session", "started", "Codex session started");
         return;
       case "turn.completed":
+        if (pendingNote) send("message", "completed", "Teaching note", pendingNote.path, pendingNote.detail);
+        pendingNote = null;
         send("session", "completed", "Codex turn completed");
         return;
       case "turn.failed":
+        pendingNote = null;
         send("error", "failed", "Codex turn failed");
         return;
       case "item.completed":
@@ -72,6 +79,8 @@ export function createCodexEventAdapter({ sessionId, repoRoot, emit, now = () =>
         } else if (item.type === "mcp_tool_call" || item.type === "web_search") {
           const failed = item.status === "failed";
           send("tool", failed ? "failed" : "completed", failed ? "Tool failed" : "Tool completed");
+        } else if (teach && item.type === "agent_message" && typeof item.text === "string") {
+          pendingNote = parseTeachingNote(item.text, repoRoot) ?? pendingNote;
         }
         return;
       default:

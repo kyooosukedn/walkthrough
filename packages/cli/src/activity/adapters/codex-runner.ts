@@ -1,6 +1,7 @@
 import { spawn, type SpawnOptions } from "node:child_process";
 import type { Readable } from "node:stream";
 import { createCodexEventAdapter } from "./codex.js";
+import { TEACHING_NOTE_INSTRUCTION } from "../teaching-note.js";
 import type { ActivityEventInput } from "../types.js";
 
 export interface CodexProcess {
@@ -14,6 +15,7 @@ export interface CodexProcess {
 export interface CodexRunnerOptions {
   repoRoot: string;
   prompt: string;
+  teach?: boolean;
   sessionId: string;
   emit(event: ActivityEventInput): void | Promise<void>;
   signal?: AbortSignal;
@@ -28,7 +30,7 @@ export interface CodexRunResult {
 }
 
 /** Start only the explicitly requested CLI session; collector delivery is supplied by the caller. */
-export function runCodexObserved({ repoRoot, prompt, sessionId, emit, signal, codexBin = "codex", execArgs = [], spawnProcess = spawn }: CodexRunnerOptions): Promise<CodexRunResult> {
+export function runCodexObserved({ repoRoot, prompt, teach = false, sessionId, emit, signal, codexBin = "codex", execArgs = [], spawnProcess = spawn }: CodexRunnerOptions): Promise<CodexRunResult> {
   let delivery = Promise.resolve();
   const safeEmit = (event: ActivityEventInput) => {
     delivery = delivery.then(() => emit(event)).then(() => {}, () => {});
@@ -41,7 +43,8 @@ export function runCodexObserved({ repoRoot, prompt, sessionId, emit, signal, co
   return new Promise((resolve) => {
     let child: CodexProcess;
     try {
-      child = spawnProcess(codexBin, ["exec", "--json", "-C", repoRoot, ...execArgs, "--", prompt], { cwd: repoRoot, shell: false, stdio: ["ignore", "pipe", "pipe"] });
+      const taskPrompt = teach ? `${prompt}\n\n${TEACHING_NOTE_INSTRUCTION}` : prompt;
+      child = spawnProcess(codexBin, ["exec", "--json", "-C", repoRoot, ...execArgs, "--", taskPrompt], { cwd: repoRoot, shell: false, stdio: ["ignore", "pipe", "pipe"] });
     } catch {
       safeEmit(failure("Codex process could not start"));
       void delivery.then(() => resolve({ exitCode: null, cancelled: false }));
@@ -50,7 +53,7 @@ export function runCodexObserved({ repoRoot, prompt, sessionId, emit, signal, co
     let cancelled = false;
     let settled = false;
     let sawError = false;
-    const adapter = createCodexEventAdapter({ repoRoot, sessionId, emit: (event) => {
+    const adapter = createCodexEventAdapter({ repoRoot, sessionId, teach, emit: (event) => {
       if (event.kind === "error") sawError = true;
       safeEmit(event);
     } });

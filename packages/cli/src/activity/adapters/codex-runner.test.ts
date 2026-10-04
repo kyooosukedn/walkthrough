@@ -2,6 +2,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { runCodexObserved } from "./codex-runner.js";
 import type { ActivityEventInput } from "../types.js";
 
@@ -67,4 +70,26 @@ test("runner waits for asynchronous collector delivery in event order", async ()
   child.emit("close", 0);
   await done;
   assert.deepEqual(delivered, ["Codex session started", "Codex turn completed"]);
+});
+
+test("teach mode appends note instruction to explicit task and emits validated note", async () => {
+  const repoRoot = mkdtempSync(join(tmpdir(), "walkthrough-codex-runner-note-"));
+  writeFileSync(join(repoRoot, "entry.ts"), "export const ready = true;\n");
+  try {
+  const child = new FakeChild();
+  const events: ActivityEventInput[] = [];
+  let task = "";
+  const done = runCodexObserved({ repoRoot, prompt: "Inspect project", sessionId: "session-1", teach: true,
+    emit: (event) => { events.push(event); }, spawnProcess: (_command, args) => { task = args.at(-1) ?? ""; return child; } });
+  assert.ok(task.startsWith("Inspect project\n"));
+  assert.match(task, /WALKTHROUGH_NOTE:/);
+  child.stdout.write(JSON.stringify({ type: "item.completed", item: { type: "agent_message", text: "Done.\nWALKTHROUGH_NOTE: entry.ts | Entry point sets ready." } }) + "\n");
+  child.stdout.write('{"type":"turn.completed"}\n');
+  child.emit("close", 0);
+  await done;
+  assert.deepEqual(events.map(({ kind, title, path, detail }) => [kind, title, path, detail]), [
+    ["message", "Teaching note", "entry.ts", "Entry point sets ready."],
+    ["session", "Codex turn completed", undefined, undefined],
+  ]);
+  } finally { rmSync(repoRoot, { recursive: true, force: true }); }
 });
