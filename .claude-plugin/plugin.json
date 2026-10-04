@@ -3,5 +3,6 @@
   "description": "Source-backed lessons for learning an unfamiliar repository from a selected file",
   "author": { "name": "Daniel Purnomo" },
   "version": "0.1.0",
-  "skills": ["./.agents/skills/"]
+  "skills": ["./.agents/skills/"],
+  "hooks": "./.claude-plugin/hooks/hooks.json"
 }
