@@ -1,0 +1,7 @@
+{
+  "name": "walkthrough-observer",
+  "description": "Local activity events for Walkthrough",
+  "author": { "name": "Daniel Purnomo" },
+  "version": "0.1.0",
+  "hooks": "./hooks/hooks.json"
+}

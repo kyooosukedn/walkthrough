@@ -14,7 +14,7 @@ Your browser opens to a repo orientation screen. Pick a real file or search by p
 
 **Want a guided lesson without a separate AI key?** Use the [Codex or Claude Code companion](./docs/AGENT_COMPANION.md). Name a file you found; Walkthrough supplies bounded source context, and your assistant explains it in chat. The browser's **Explain this file** button remains the separate DeepSeek option below.
 
-**Want to watch an agent work?** From a built Walkthrough checkout, run one of these commands and open **Watch agent activity** in the browser:
+**Want to watch an agent work?** Run one of these commands and open **Watch agent activity** in the browser. These examples use a built checkout. The CLI package also contains the observer plugin, ready for npm publishing:
 
 ```bash
 node packages/cli/dist/index.js observe ./path/to/project --host claude

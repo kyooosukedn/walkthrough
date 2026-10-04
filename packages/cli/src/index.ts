@@ -236,10 +236,10 @@ async function launchObservedHost(observe: { host: "claude" | "codex"; prompt?: 
 }
 
 async function launchClaudeObserved({ repoRoot, url, token }: { repoRoot: string; url: string; token: string }): Promise<void> {
-  // The Claude plugin lives in this source checkout; packaged installs get a clear error.
-  const pluginRoot = resolve(import.meta.dirname ?? ".", "../../..");
-  if (!existsSync(join(pluginRoot, ".claude-plugin", "plugin.json")) || !existsSync(join(pluginRoot, "packages", "cli", "scripts", "claude-hook.mjs"))) {
-    throw new Error("Claude observation currently requires a Walkthrough source checkout with a built CLI. Run npm run build:cli in that checkout.");
+  const packageRoot = resolve(import.meta.dirname ?? ".", "..");
+  const pluginRoot = join(packageRoot, "plugin");
+  if (!existsSync(join(pluginRoot, ".claude-plugin", "plugin.json")) || !existsSync(join(pluginRoot, "hooks", "hooks.json")) || !existsSync(join(packageRoot, "scripts", "claude-hook.mjs"))) {
+    throw new Error("Claude observer files are missing from this CLI install. Reinstall Walkthrough and retry.");
   }
   console.log("  ◆ Starting Claude Code in observed checkout. Activity stays local.");
   const child = spawn(claudeExecutable(), ["--plugin-dir", pluginRoot], {
