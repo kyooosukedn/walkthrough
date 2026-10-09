@@ -48,6 +48,7 @@
 
 **Files:** `docs/product/large-repo-performance.md`, possibly scanner tests if checks expose a bug.
 
-- [ ] Run full build, typecheck, and tests.
-- [ ] Run the same Medusa checkout scan at least twice after the change. Record elapsed time, 24,201-file and 18,432-edge baseline comparison, heap and RSS, and explain warm-cache limits.
-- [ ] Document the measured result, decision to defer caching/Rust, and the next bottleneck. Review diff and open a draft PR stacked on teaching-notes PR #8.
+- [x] Run full build, typecheck, and tests.
+- [x] Run the same Medusa checkout scan at least twice after the change. Record elapsed time, 24,201-file and 18,432-edge baseline comparison, heap and RSS, and explain warm-cache limits.
+- [x] Document the measured result, decision to defer caching/Rust, and the next bottleneck.
+- [ ] Open a draft PR stacked on teaching-notes PR #8 after diff review.
