@@ -51,4 +51,4 @@
 - [x] Run full build, typecheck, and tests.
 - [x] Run the same Medusa checkout scan at least twice after the change. Record elapsed time, 24,201-file and 18,432-edge baseline comparison, heap and RSS, and explain warm-cache limits.
 - [x] Document the measured result, decision to defer caching/Rust, and the next bottleneck.
-- [ ] Open a draft PR stacked on teaching-notes PR #8 after diff review.
+- [x] Open [draft PR #9](https://github.com/kyooosukedn/walkthrough/pull/9) stacked on teaching-notes PR #8 after diff review.
