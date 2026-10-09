@@ -39,10 +39,10 @@
 
 **Files:** `packages/scanner/src/analyzers/imports.ts`, `imports.test.ts`.
 
-- [ ] Add failing tests that pin duplicate specifier merging and stable edge order across differently sized files.
-- [ ] Read parseable files through `mapBounded` and fold returned import lists in original file order.
-- [ ] Replace `edges.find` with a `Map` keyed by source and target; preserve edge arrays and specifier order.
-- [ ] Run scanner tests and typecheck; commit.
+- [x] Add a failing test for overlapping bounded reads, duplicate specifier merging, and stable edge order.
+- [x] Read parseable files through `mapBounded` and fold returned import lists in original file order.
+- [x] Replace `edges.find` with a `Map` keyed by source and target; preserve edge arrays and specifier order.
+- [x] Run scanner tests and typecheck; commit.
 
 ## Task 3: measured release check
 

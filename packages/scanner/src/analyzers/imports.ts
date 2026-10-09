@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { readFile, readdir, stat } from "node:fs/promises";
 
 import type { ImportGraph, ImportNode, ImportEdge, ProjectInfo, Analyzer } from "../types.js";
+import { mapBounded, SCANNER_READ_CONCURRENCY } from "./ordered-map.js";
 
 const IGNORE_DIRS = new Set([
   "node_modules", ".git", ".next", "dist", "build", "coverage", ".cache", ".turbo", ".vercel", "__pycache__",
@@ -15,6 +16,8 @@ const IMPORT_RE = /(?:import\s+(?:type\s+)?(?:[^;'"]*?)\s+from\s+['"]([^'"]+)['"
 export class ImportGraphAnalyzer implements Analyzer {
   name = "imports";
 
+  constructor(private readonly readSource: (path: string) => Promise<string> = (path) => readFile(path, "utf8")) {}
+
   detect(_project: ProjectInfo): boolean {
     return true;
   }
@@ -25,30 +28,34 @@ export class ImportGraphAnalyzer implements Analyzer {
     const aliases = await loadPathAliases(project.rootPath);
     const nodes: ImportNode[] = files.map((f) => ({ id: f, type: "file" }));
     const edges: ImportEdge[] = [];
+    const edgeByPair = new Map<string, ImportEdge>();
 
-    for (const file of files) {
-      const fullPath = join(project.rootPath, file);
+    const importsByFile = await mapBounded(files, SCANNER_READ_CONCURRENCY, async (file) => {
       const ext = extname(file);
-      if (!PARSEABLE_EXTS.has(ext)) continue;
+      if (!PARSEABLE_EXTS.has(ext)) return [];
 
       try {
-        const content = await readFile(fullPath, "utf-8");
-        const imports = extractImports(content);
-        const dir = dirname(file);
-
-        for (const raw of imports) {
-          const resolved = resolveImport(raw, dir, project.rootPath, fileSet, aliases);
-          if (resolved) {
-            const existing = edges.find((e) => e.from === file && e.to === resolved);
-            if (existing) {
-              existing.imports.push(raw);
-            } else {
-              edges.push({ from: file, to: resolved, imports: [raw] });
-            }
-          }
-        }
+        return extractImports(await this.readSource(join(project.rootPath, file)));
       } catch {
         // Skip unreadable files
+        return [];
+      }
+    });
+
+    for (let index = 0; index < files.length; index++) {
+      const file = files[index];
+      const dir = dirname(file);
+      for (const raw of importsByFile[index]) {
+        const resolved = resolveImport(raw, dir, project.rootPath, fileSet, aliases);
+        if (!resolved) continue;
+        const key = `${file}\0${resolved}`;
+        const existing = edgeByPair.get(key);
+        if (existing) existing.imports.push(raw);
+        else {
+          const edge = { from: file, to: resolved, imports: [raw] };
+          edges.push(edge);
+          edgeByPair.set(key, edge);
+        }
       }
     }
 
@@ -60,11 +67,8 @@ export class ImportGraphAnalyzer implements Analyzer {
         dirSet.add(parts.slice(0, i).join("/"));
       }
     }
-    for (const d of dirSet) {
-      if (!nodes.find((n) => n.id === d)) {
-        nodes.push({ id: d, type: "directory" });
-      }
-    }
+    const nodeIds = new Set(files);
+    for (const d of dirSet) if (!nodeIds.has(d)) nodes.push({ id: d, type: "directory" });
 
     return { imports: { nodes, edges } };
   }
