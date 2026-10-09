@@ -2,6 +2,7 @@ import { extname, join, relative, basename } from "node:path";
 import { readdir, stat, readFile } from "node:fs/promises";
 
 import type { FileTreeNode, ProjectInfo, Analyzer, CodeMapStats } from "../types.js";
+import { mapBounded, SCANNER_READ_CONCURRENCY } from "./ordered-map.js";
 
 /** Directories to always skip */
 const IGNORE_DIRS = new Set([
@@ -82,7 +83,7 @@ async function walkDir(rootPath: string, currentPath: string): Promise<FileTreeN
 async function countNodes(rootPath: string, tree: FileTreeNode): Promise<CodeMapStats> {
   let files = 0;
   let directories = 0;
-  let totalLines = 0;
+  const textFiles: string[] = [];
 
   const TEXT_EXTS = new Set([
     ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs",
@@ -93,27 +94,28 @@ async function countNodes(rootPath: string, tree: FileTreeNode): Promise<CodeMap
     ".sql", ".graphql", ".prisma",
   ]);
 
-  async function walk(node: FileTreeNode) {
+  function walk(node: FileTreeNode): void {
     if (node.type === "file") {
       files++;
       const ext = node.extension?.toLowerCase() ?? "";
-      if (TEXT_EXTS.has(ext)) {
-        try {
-          const content = await readFile(join(rootPath, node.path), "utf-8");
-          totalLines += content.split("\n").length;
-        } catch {
-          // Binary or unreadable — skip
-        }
-      }
+      if (TEXT_EXTS.has(ext)) textFiles.push(node.path);
     } else {
       directories++;
-      for (const child of node.children ?? []) {
-        await walk(child);
-      }
+      for (const child of node.children ?? []) walk(child);
     }
   }
 
-  await walk(tree);
+  walk(tree);
+  const counts = await mapBounded(textFiles, SCANNER_READ_CONCURRENCY, async (path) => {
+    try {
+      const content = await readFile(join(rootPath, path), "utf-8");
+      return content.split("\n").length;
+    } catch {
+      // Binary or unreadable — skip.
+      return 0;
+    }
+  });
+  const totalLines = counts.reduce((sum, count) => sum + count, 0);
 
   return { files, directories, totalLines };
 }

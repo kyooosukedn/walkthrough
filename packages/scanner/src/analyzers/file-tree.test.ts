@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import { resolve, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { existsSync } from "node:fs";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { FileTreeAnalyzer } from "./file-tree.js";
 import type { ProjectInfo } from "../types.js";
 
@@ -77,5 +79,21 @@ describe("FileTreeAnalyzer", () => {
     expect(typesFile!.extension).toBe(".ts");
     expect(typesFile!.type).toBe("file");
     expect(typesFile!.size).toBeGreaterThan(0);
+  });
+
+  it("preserves file, directory, and line totals across nested text and binary files", async () => {
+    const rootPath = await mkdtemp(join(tmpdir(), "walkthrough-tree-count-"));
+    try {
+      await mkdir(join(rootPath, "src"));
+      await writeFile(join(rootPath, "a.ts"), "one\ntwo");
+      await writeFile(join(rootPath, "src", "b.py"), "a\nb\nc");
+      await writeFile(join(rootPath, "src", "image.bin"), Buffer.from([0, 1, 2]));
+      await writeFile(join(rootPath, ".git"), "gitdir: elsewhere");
+      const result = await analyzer.analyze({ rootPath });
+      expect(result.stats).toEqual({ files: 3, directories: 2, totalLines: 5 });
+      expect(result.fileTree.children?.map((child) => child.name)).toEqual(["src", "a.ts"]);
+    } finally {
+      await rm(rootPath, { recursive: true, force: true });
+    }
   });
 });
