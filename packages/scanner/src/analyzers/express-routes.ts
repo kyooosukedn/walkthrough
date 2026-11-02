@@ -1,6 +1,8 @@
 import { join } from "node:path";
 import { readFile } from "node:fs/promises";
 
+import { isNoisePath } from "./entry-points.js";
+
 import type {
   Route,
   ProjectInfo,
@@ -58,6 +60,8 @@ function findParseableFiles(tree?: FileTreeNode): string[] {
 
   function walk(node: FileTreeNode): void {
     for (const child of node.children ?? []) {
+      // Test code calls api.get("/x") constantly — those are requests, not routes
+      if (isNoisePath(child.name)) continue;
       if (child.type === "directory") walk(child);
       else {
         const ext = child.name.slice(child.name.lastIndexOf("."));

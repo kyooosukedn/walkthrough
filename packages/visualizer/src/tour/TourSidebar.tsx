@@ -133,7 +133,7 @@ export function TourSidebar({ engine, state }: TourSidebarProps) {
                       overflow: "hidden",
                     }}
                   >
-                    {step.description}
+                    {plainText(step.description)}
                   </div>
                 )}
               </div>
@@ -143,4 +143,13 @@ export function TourSidebar({ engine, state }: TourSidebarProps) {
       </div>
     </div>
   );
+}
+
+/** Strip the light markdown used in narration for one-line previews. */
+function plainText(md: string): string {
+  return md
+    .replace(/\*\*|`/g, "")
+    .replace(/\n+- /g, " · ")
+    .replace(/\s*\n+\s*/g, " ")
+    .trim();
 }

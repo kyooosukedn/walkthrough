@@ -22,7 +22,9 @@ const ELK_OPTIONS: Record<string, string> = {
 export async function treeToGraph(
   tree: FileTreeNode,
 ): Promise<{ nodes: Node[]; edges: Edge[] }> {
-  const children = tree.children ?? [];
+  // Dot-files and dot-folders (.github, .vscode, .env...) are tooling noise on
+  // an architecture map; they stay reachable through search and the file tree.
+  const children = (tree.children ?? []).filter((c) => !c.name.startsWith("."));
 
   // Collect top-level items as nodes
   const elkNodes: ElkNode[] = [];

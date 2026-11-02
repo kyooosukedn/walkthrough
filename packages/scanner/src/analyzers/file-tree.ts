@@ -2,20 +2,7 @@ import { extname, join, relative, basename } from "node:path";
 import { readdir, stat, readFile } from "node:fs/promises";
 
 import type { FileTreeNode, ProjectInfo, Analyzer, CodeMapStats } from "../types.js";
-
-/** Directories to always skip */
-const IGNORE_DIRS = new Set([
-  "node_modules",
-  ".git",
-  ".next",
-  "dist",
-  "build",
-  "coverage",
-  ".cache",
-  ".turbo",
-  ".vercel",
-  "__pycache__",
-]);
+import { shouldSkipDir } from "./ignore.js";
 
 /** Files to always skip */
 const IGNORE_FILES = new Set([
@@ -59,7 +46,9 @@ async function walkDir(rootPath: string, currentPath: string): Promise<FileTreeN
   const children: FileTreeNode[] = [];
 
   for (const entry of entries) {
-    if (entry.isDirectory() && IGNORE_DIRS.has(entry.name)) continue;
+    // Symlinks can point outside the project or loop back up the tree
+    if (entry.isSymbolicLink()) continue;
+    if (entry.isDirectory() && shouldSkipDir(entry.name, join(currentPath, entry.name))) continue;
     if (entry.isFile() && IGNORE_FILES.has(entry.name)) continue;
 
     try {

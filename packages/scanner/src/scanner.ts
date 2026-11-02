@@ -18,11 +18,13 @@ import { SCHEMA_VERSION } from "./types.js";
 import { FileTreeAnalyzer } from "./analyzers/file-tree.js";
 import { ImportGraphAnalyzer } from "./analyzers/imports.js";
 import { EntryPointAnalyzer } from "./analyzers/entry-points.js";
-import { TourGeneratorAnalyzer } from "./analyzers/tour-generator.js";
+import { TourGeneratorAnalyzer, projectName } from "./analyzers/tour-generator.js";
 import { NextJsRoutesAnalyzer } from "./analyzers/nextjs-routes.js";
 import { ReactComponentAnalyzer } from "./analyzers/react-components.js";
 import { DatabaseAnalyzer } from "./analyzers/database.js";
 import { ExpressRoutesAnalyzer } from "./analyzers/express-routes.js";
+import { deriveOrientation } from "./analyzers/orientation.js";
+import { findWorkspacePackages, collectFilePaths } from "./analyzers/workspaces.js";
 
 /**
  * Scan a project and produce a CodeMap blueprint.
@@ -42,6 +44,7 @@ export async function scan(rootPath: string): Promise<CodeMap> {
   const fileTreeAnalyzer = new FileTreeAnalyzer();
   const treeOutput = await fileTreeAnalyzer.analyze(project);
   project.fileTree = treeOutput.fileTree;
+  project.workspaces = await findWorkspacePackages(rootPath, project.fileTree, collectFilePaths(project.fileTree));
 
   // Phase 2: Imports + Entry points (parallel, both need file tree)
   const importAnalyzer = new ImportGraphAnalyzer();
@@ -93,7 +96,9 @@ export async function scan(rootPath: string): Promise<CodeMap> {
   if (routesMerged) outputs.push(routesMerged);
   if (componentsOutput) outputs.push(componentsOutput);
   if (databaseOutput) outputs.push(databaseOutput);
-  return mergeOutputs(project, outputs);
+  const map = mergeOutputs(project, outputs);
+  map.orientation = deriveOrientation(map.fileTree);
+  return map;
 }
 
 /** Extract project metadata from the filesystem */
@@ -141,7 +146,7 @@ function mergeOutputs(project: ProjectInfo, outputs: AnalyzerOutput[]): CodeMap 
   }
 
   const meta: CodeMapMeta = {
-    name: (project.packageJson?.name as string) || basename(project.rootPath),
+    name: projectName(project),
     version: SCHEMA_VERSION,
     scannedAt: new Date().toISOString(),
     frameworks: detectFrameworks(project),

@@ -1,5 +1,7 @@
 # CodeMap — Architecture
 
+> Historical design proposal. Several names and planned analyzers below do not match the shipped Walkthrough code. For the current implementation, use [the codebase guide](./docs/CODEBASE_GUIDE.md).
+
 **Principle:** The scanner and visualizer never speak directly. The `codemap.json` is the entire contract. This is the single most important architectural decision.
 
 ---

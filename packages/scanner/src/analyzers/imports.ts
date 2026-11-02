@@ -2,11 +2,9 @@ import { join, relative, extname, resolve, dirname } from "node:path";
 import { existsSync } from "node:fs";
 import { readFile, readdir, stat } from "node:fs/promises";
 
-import type { ImportGraph, ImportNode, ImportEdge, ProjectInfo, Analyzer } from "../types.js";
-
-const IGNORE_DIRS = new Set([
-  "node_modules", ".git", ".next", "dist", "build", "coverage", ".cache", ".turbo", ".vercel", "__pycache__",
-]);
+import type { ImportGraph, ImportNode, ImportEdge, ProjectInfo, Analyzer, WorkspacePackage } from "../types.js";
+import { resolvePythonImports, resolveGoImports, goModulePath, goPackageIndex, type GoModule } from "./lang-imports.js";
+import { shouldSkipDir } from "./ignore.js";
 
 const PARSEABLE_EXTS = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"]);
 
@@ -23,27 +21,53 @@ export class ImportGraphAnalyzer implements Analyzer {
     const files = await collectFiles(project.rootPath, project.rootPath);
     const fileSet = new Set(files);
     const aliases = await loadPathAliases(project.rootPath);
+    const workspaces = project.workspaces ?? [];
     const nodes: ImportNode[] = files.map((f) => ({ id: f, type: "file" }));
     const edges: ImportEdge[] = [];
+    const edgeIndex = new Map<string, ImportEdge>();
+
+    // Go: imports are package paths under a go.mod module path (any go.mod in the repo)
+    const goModules: GoModule[] = [];
+    for (const f of files) {
+      if (f !== "go.mod" && !f.endsWith("/go.mod")) continue;
+      try {
+        const path = goModulePath(await readFile(join(project.rootPath, f), "utf-8"));
+        if (path) goModules.push({ path, dir: f.includes("/") ? f.slice(0, f.lastIndexOf("/")) : "" });
+      } catch {
+        // unreadable go.mod — skip
+      }
+    }
+    const goIndex = goModules.length > 0 ? goPackageIndex(files) : new Map<string, string>();
 
     for (const file of files) {
       const fullPath = join(project.rootPath, file);
       const ext = extname(file);
-      if (!PARSEABLE_EXTS.has(ext)) continue;
+      const isPy = ext === ".py";
+      const isGo = ext === ".go" && goModules.length > 0;
+      if (!PARSEABLE_EXTS.has(ext) && !isPy && !isGo) continue;
 
       try {
         const content = await readFile(fullPath, "utf-8");
-        const imports = extractImports(content);
         const dir = dirname(file);
+        const found: Array<{ raw: string; to: string | null }> = isPy
+          ? resolvePythonImports(file, content, fileSet)
+          : isGo
+            ? resolveGoImports(file, content, goModules, goIndex)
+            : extractImports(content).map((raw) => ({
+                raw,
+                to: resolveImport(raw, dir, project.rootPath, fileSet, aliases, workspaces),
+              }));
 
-        for (const raw of imports) {
-          const resolved = resolveImport(raw, dir, project.rootPath, fileSet, aliases);
-          if (resolved) {
-            const existing = edges.find((e) => e.from === file && e.to === resolved);
+        for (const { raw, to: resolved } of found) {
+          if (resolved && resolved !== file) {
+            const key = file + "\0" + resolved;
+            const existing = edgeIndex.get(key);
             if (existing) {
               existing.imports.push(raw);
             } else {
-              edges.push({ from: file, to: resolved, imports: [raw] });
+              const edge = { from: file, to: resolved, imports: [raw] };
+              edgeIndex.set(key, edge);
+              edges.push(edge);
             }
           }
         }
@@ -61,9 +85,7 @@ export class ImportGraphAnalyzer implements Analyzer {
       }
     }
     for (const d of dirSet) {
-      if (!nodes.find((n) => n.id === d)) {
-        nodes.push({ id: d, type: "directory" });
-      }
+      if (!fileSet.has(d)) nodes.push({ id: d, type: "directory" });
     }
 
     return { imports: { nodes, edges } };
@@ -75,7 +97,8 @@ async function collectFiles(root: string, current: string): Promise<string[]> {
   const files: string[] = [];
 
   for (const entry of entries) {
-    if (entry.isDirectory() && IGNORE_DIRS.has(entry.name)) continue;
+    if (entry.isSymbolicLink()) continue;
+    if (entry.isDirectory() && shouldSkipDir(entry.name, join(current, entry.name))) continue;
 
     const fullPath = join(current, entry.name);
     if (entry.isDirectory()) {
@@ -100,7 +123,7 @@ function extractImports(content: string): string[] {
 }
 
 /** A tsconfig `paths` alias: imports starting with `prefix` resolve under `targetDir`. */
-interface PathAlias {
+export interface PathAlias {
   prefix: string;
   targetDir: string;
 }
@@ -178,7 +201,14 @@ function stripJsoncComments(source: string): string {
   return out;
 }
 
-function resolveImport(raw: string, fromDir: string, root: string, allFiles: Set<string>, aliases: PathAlias[]): string | null {
+export function resolveImport(
+  raw: string,
+  fromDir: string,
+  root: string,
+  allFiles: Set<string>,
+  aliases: PathAlias[],
+  workspaces: WorkspacePackage[] = [],
+): string | null {
   // Strip .js/.jsx/.mjs/.cjs extensions from import paths (TS ESM convention)
   const stripped = raw.replace(/\.(js|jsx|mjs|cjs)$/, "");
 
@@ -199,6 +229,17 @@ function resolveImport(raw: string, fromDir: string, root: string, allFiles: Set
   for (const alias of aliases) {
     if (raw.startsWith(alias.prefix)) {
       const hit = probe(resolve(alias.targetDir, stripped.slice(alias.prefix.length)));
+      if (hit) return hit;
+    }
+  }
+
+  // Monorepo packages: "@acme/ui" -> packages/ui/src/index.ts,
+  // "@acme/ui/button" -> packages/ui/src/button.tsx
+  for (const pkg of workspaces) {
+    if (raw === pkg.name) return pkg.sourceEntry ?? null;
+    if (raw.startsWith(pkg.name + "/")) {
+      const sub = stripped.slice(pkg.name.length + 1);
+      const hit = probe(resolve(root, pkg.dir, "src", sub)) ?? probe(resolve(root, pkg.dir, sub));
       if (hit) return hit;
     }
   }
