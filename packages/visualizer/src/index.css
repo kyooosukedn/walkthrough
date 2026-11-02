@@ -152,3 +152,19 @@ body {
     stroke-dashoffset: -9;
   }
 }
+
+/* React Flow zoom controls: match the dark theme instead of default white */
+.react-flow__controls-button {
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  fill: var(--text-muted);
+}
+.react-flow__controls-button:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+  fill: var(--text);
+}
+.react-flow__controls-button svg {
+  fill: currentColor;
+}

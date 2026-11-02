@@ -108,20 +108,34 @@ function componentsToGraph(components: Component[]): { nodes: Node[]; edges: Edg
     if (!depth.has(file)) depth.set(file, orphanDepth);
   }
 
+  // A depth level with many components wraps into several sub-columns,
+  // so a big flat set of components reads as a grid instead of a long strip.
+  const MAX_ROWS = 10;
+  const sizeOf = new Map<number, number>();
+  for (const d of depth.values()) sizeOf.set(d, (sizeOf.get(d) ?? 0) + 1);
+  const columnStart = new Map<number, number>();
+  let nextColumn = 0;
+  for (const d of [...sizeOf.keys()].sort((a, b) => a - b)) {
+    columnStart.set(d, nextColumn);
+    nextColumn += Math.ceil((sizeOf.get(d) ?? 0) / MAX_ROWS);
+  }
+
   const perColumn = new Map<number, number>();
   const nodes: Node[] = [];
   const edges: Edge[] = [];
 
   for (const [file, list] of byFile) {
     const d = depth.get(file) ?? 0;
-    const row = perColumn.get(d) ?? 0;
-    perColumn.set(d, row + 1);
+    const index = perColumn.get(d) ?? 0;
+    perColumn.set(d, index + 1);
+    const column = (columnStart.get(d) ?? 0) + Math.floor(index / MAX_ROWS);
+    const row = index % MAX_ROWS;
 
     const isPage = list.some((c) => c.isPage);
     nodes.push({
       id: file,
       type: "codemap-default",
-      position: { x: d * COLUMN_WIDTH, y: row * ROW_HEIGHT },
+      position: { x: column * COLUMN_WIDTH, y: row * ROW_HEIGHT },
       data: {
         label: list.length === 1 ? list[0].name : `${list[0].name} +${list.length - 1}`,
         filePath: file,

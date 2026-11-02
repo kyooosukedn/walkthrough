@@ -1,4 +1,4 @@
-import { Search, Sliders, Play, X } from "lucide-react";
+import { Play, X } from "lucide-react";
 
 interface TopBarProps {
   activeView?: string;
@@ -14,7 +14,6 @@ const VIEW_TABS = [
   { id: "overview", label: "Overview" },
   { id: "routes", label: "Routes" },
   { id: "components", label: "Components" },
-  { id: "flow", label: "Data Flow" },
   { id: "database", label: "Database" },
 ];
 
@@ -148,27 +147,7 @@ export function TopBar({
         </button>
       )}
 
-      {/* Actions */}
-      <button style={iconBtnStyle}>
-        <Search size={16} />
-      </button>
-      <button style={iconBtnStyle}>
-        <Sliders size={16} />
-      </button>
     </div>
   );
 }
 
-const iconBtnStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  width: 32,
-  height: 32,
-  borderRadius: 6,
-  border: "none",
-  background: "transparent",
-  color: "var(--text-muted)",
-  cursor: "pointer",
-  transition: "all 150ms ease",
-};
