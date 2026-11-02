@@ -36,7 +36,7 @@
     "typecheck": "tsc --noEmit",
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
     "prepack": "node -e \"require('fs').copyFileSync('../../README.md','README.md')\"",
-    "test": "esbuild src/*.test.ts --bundle --platform=node --format=esm --outdir=.test --out-extension:.js=.mjs --log-level=warning && node --test .test/"
+    "test": "esbuild src/*.test.ts --bundle --platform=node --format=esm --outdir=.test --out-extension:.js=.mjs --log-level=warning && node --test .test/*.mjs"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",
