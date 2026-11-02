@@ -34,7 +34,7 @@ test("readSource reads only allowed UTF-8 files inside checkout", async () => {
 
 test("isSecretFile hides env files, keys and credential stores but not examples", async () => {
   const { isSecretFile } = await import("./source.js");
-  for (const p of [".env", "backend/.env", ".env.local", ".env.production", "certs/server.pem", "id_rsa", ".npmrc", "deploy/app.key"]) {
+  for (const p of [".env", "backend/.env", ".env.local", ".env.production", "certs/server.pem", "id_rsa", ".npmrc", "deploy/app.key", ".NPMRC", ".envrc", "prod.env", ".aws/credentials"]) {
     assert.equal(isSecretFile(p), true, p);
   }
   for (const p of [".env.example", "backend/.env.sample", "src/env.ts", "README.md", "keys.ts", "environment.py"]) {

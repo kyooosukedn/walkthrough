@@ -10,7 +10,11 @@ export class SourceError extends Error {
   }
 }
 
-const SECRET_NAMES = new Set([".npmrc", ".pypirc", ".netrc", ".pgpass", "credentials.json", "id_rsa", "id_ed25519", "id_ecdsa"]);
+const SECRET_NAMES = new Set([
+  ".npmrc", ".pypirc", ".netrc", ".pgpass", ".envrc", ".htpasswd", ".git-credentials",
+  "credentials", "credentials.json", "service-account.json", "secrets.env",
+  "id_rsa", "id_dsa", "id_ed25519", "id_ecdsa",
+]);
 const SECRET_EXT = /\.(pem|key|p12|pfx|jks|keystore)$/i;
 const SAFE_ENV = /^\.env\.(example|sample|template|dist|defaults)$/i;
 
@@ -18,7 +22,7 @@ const SAFE_ENV = /^\.env\.(example|sample|template|dist|defaults)$/i;
 export function isSecretFile(path: string): boolean {
   const name = path.slice(path.lastIndexOf("/") + 1);
   if (/^\.env($|\.)/i.test(name)) return !SAFE_ENV.test(name);
-  return SECRET_NAMES.has(name) || SECRET_EXT.test(name);
+  return SECRET_NAMES.has(name.toLowerCase()) || SECRET_EXT.test(name) || /\.env$/i.test(name);
 }
 
 /** Read a scanned text file without following links outside the checkout. */
