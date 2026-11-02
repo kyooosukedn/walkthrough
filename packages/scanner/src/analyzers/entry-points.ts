@@ -55,6 +55,9 @@ export class EntryPointAnalyzer implements Analyzer {
       }
     }
 
+    // Entries declared in package.json are authoritative; rank them first.
+    const declared = new Set(entryPoints.map((e) => e.file));
+
     // Walk filesystem looking for entry point files
     const files = await collectSourceFiles(project.rootPath, project.rootPath);
 
@@ -70,6 +73,9 @@ export class EntryPointAnalyzer implements Analyzer {
 
           // Skip barrel exports in subdirectories
           if (name.startsWith("index.") && depth > 1) continue;
+          // A React component named server.tsx / cli.tsx is not a process entry
+          if (/\.(tsx|jsx)$/.test(name) && pattern.type !== "page" && pattern.type !== "layout"
+            && relPath.split("/").includes("components")) continue;
 
           const ep: EntryPoint = { file: relPath, type: pattern.type };
 
@@ -88,8 +94,38 @@ export class EntryPointAnalyzer implements Analyzer {
       }
     }
 
-    return { entryPoints: deduplicate(entryPoints) };
+    return { entryPoints: rankEntryPoints(deduplicate(entryPoints), declared) };
   }
+}
+
+/** Path segments that mark code a newcomer should not start from. */
+const NOISE_SEGMENTS = new Set([
+  "test", "tests", "__tests__", "spec", "specs", "e2e", "integration-tests",
+  "__fixtures__", "fixtures", "__mocks__", "mocks",
+  "example", "examples", "sample", "samples", "demo", "demos",
+  "template", "templates", "scaffold", "playground", "benchmarks", "bench",
+]);
+
+export function isNoisePath(file: string): boolean {
+  return file.split("/").some((seg) => NOISE_SEGMENTS.has(seg.toLowerCase()) || seg.startsWith("."));
+}
+
+/**
+ * Order entry points so the most useful starting files come first.
+ * Declared entries (package.json main/bin) win, then shallow files.
+ * Test/fixture/example/template entries are dropped when real ones exist.
+ */
+export function rankEntryPoints(entries: EntryPoint[], declared: Set<string> = new Set()): EntryPoint[] {
+  const real = entries.filter((e) => !isNoisePath(e.file));
+  const pool = real.length > 0 ? real : entries;
+  const score = (e: EntryPoint) =>
+    (declared.has(e.file) ? 0 : 100) +
+    e.file.split("/").length * 10 +
+    (e.type === "layout" ? 5 : 0);
+  return pool
+    .map((e, i) => ({ e, i }))
+    .sort((a, b) => score(a.e) - score(b.e) || a.i - b.i)
+    .map(({ e }) => e);
 }
 
 async function collectSourceFiles(root: string, current: string): Promise<string[]> {
