@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { resolve, join } from "node:path";
+import { resolve, join, relative, isAbsolute, sep } from "node:path";
 import { existsSync } from "node:fs";
 import { createServer } from "node:http";
 import { readFile, stat } from "node:fs/promises";
@@ -20,6 +20,8 @@ for (let i = 0; i < args.length; i++) {
     flags.json = true;
   } else if (args[i] === "--no-serve") {
     flags.noServe = true;
+  } else if (args[i] === "--no-open") {
+    flags.noOpen = true;
   } else if (args[i] === "--output" && args[i + 1]) {
     flags.output = args[++i];
   } else if (args[i] === "--port" && args[i + 1]) {
@@ -39,6 +41,9 @@ if (!existsSync(targetPath)) {
   process.exit(1);
 }
 
+// Progress goes to stderr in --json mode so stdout stays valid JSON.
+const log = (msg: string) => (flags.json ? console.error(msg) : console.log(msg));
+
 // ─── Run ─────────────────────────────────────────────────────
 main().catch((err) => {
   console.error("✗ Scan failed:", err.message);
@@ -46,16 +51,16 @@ main().catch((err) => {
 });
 
 async function main() {
-  console.log(`◆ Walkthrough — scanning ${targetPath}`);
+  log(`◆ Walkthrough — scanning ${targetPath}`);
 
   // Scan
   const codemap = await scan(targetPath);
-  console.log(
+  log(
     `  ${codemap.meta.stats.files} files, ${codemap.meta.stats.directories} directories`,
   );
 
   if (codemap.meta.frameworks.length > 0) {
-    console.log(
+    log(
       `  Frameworks: ${codemap.meta.frameworks.map((f: { name: string }) => f.name).join(", ")}`,
     );
   }
@@ -66,18 +71,24 @@ async function main() {
     return;
   }
 
-  // Write JSON
-  const outputPath = flags.output
-    ? resolve(flags.output as string)
-    : join(targetPath, "codemap.json");
-
-  await writeCodeMap(codemap, outputPath);
-  console.log(`  Written: ${outputPath}`);
+  // Write JSON only when asked (--output) or when it's the whole point (--no-serve).
+  // Serving works from memory, so the scanned project stays untouched by default.
+  if (flags.output || flags.noServe) {
+    const outputPath = flags.output
+      ? resolve(flags.output as string)
+      : join(targetPath, "codemap.json");
+    await writeCodeMap(codemap, outputPath);
+    log(`  Written: ${outputPath}`);
+  }
 
   if (flags.noServe) return;
 
   // Serve
   const port = parseInt(String(flags.port || "3000"), 10);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    console.error(`✗ Invalid port: ${flags.port}`);
+    process.exit(1);
+  }
   await serve(codemap, port);
 }
 
@@ -99,6 +110,13 @@ async function serve(codemap: Awaited<ReturnType<typeof scan>>, port: number) {
   const hasVisualizer = existsSync(join(visualizerDir, "index.html"));
 
   const server = createServer(async (req, res) => {
+    // DNS-rebinding guard: only answer requests addressed to loopback names.
+    const host = (req.headers.host ?? "").replace(/:\d+$/, "");
+    if (!["127.0.0.1", "localhost", "[::1]"].includes(host)) {
+      res.writeHead(403, { "Content-Type": "text/plain" });
+      res.end("Forbidden");
+      return;
+    }
     const requestUrl = new URL(req.url ?? "/", "http://localhost");
     if (requestUrl.pathname === "/source") {
       try {
@@ -112,7 +130,7 @@ async function serve(codemap: Awaited<ReturnType<typeof scan>>, port: number) {
       }
       return;
     }
-    if (req.url === "/codemap.json") {
+    if (requestUrl.pathname === "/codemap.json") {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(codemapJson);
       return;
@@ -125,8 +143,18 @@ async function serve(codemap: Awaited<ReturnType<typeof scan>>, port: number) {
     }
 
     // Serve visualizer static files
-    let filePath = join(visualizerDir, req.url === "/" ? "index.html" : req.url!);
-    if (!existsSync(filePath) || (await stat(filePath)).isDirectory()) {
+    let pathname: string;
+    try {
+      pathname = decodeURIComponent(requestUrl.pathname);
+    } catch {
+      res.writeHead(400);
+      res.end("Bad request");
+      return;
+    }
+    let filePath = resolve(visualizerDir, "." + pathname);
+    const within = relative(visualizerDir, filePath);
+    const escapes = within === ".." || within.startsWith(".." + sep) || isAbsolute(within);
+    if (escapes || !existsSync(filePath) || (await stat(filePath)).isDirectory()) {
       filePath = join(visualizerDir, "index.html");
     }
 
@@ -153,7 +181,7 @@ async function serve(codemap: Awaited<ReturnType<typeof scan>>, port: number) {
   server.listen(port, "127.0.0.1", () => {
     const url = `http://127.0.0.1:${port}`;
     console.log(`  ◆ Open: ${url}`);
-    open(url);
+    if (!flags.noOpen) open(url);
   }).on("error", (err: NodeJS.ErrnoException) => {
     if (err.code === "EADDRINUSE") {
       console.error(`  ✗ Port ${port} is in use. Try --port ${port + 1}`);
@@ -190,7 +218,8 @@ Options:
   --json                Output codemap.json to stdout
   --output <path>       Write JSON to custom path
   --port <number>       Dev server port (default: 3000)
-  --no-serve            Write JSON and exit
+  --no-serve            Write codemap.json (into the project, or --output) and exit
+  --no-open             Serve without opening a browser
   -h, --help            Show this help
 
 Examples:
