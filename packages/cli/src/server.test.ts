@@ -43,6 +43,7 @@ before(async () => {
   await writeFile(join(project, "package.json"), JSON.stringify({ name: "demo", main: "index.js" }));
   await writeFile(join(project, "index.js"), 'const lib = require("./lib");\n');
   await writeFile(join(project, "lib.js"), "module.exports = 1;\n");
+  await writeFile(join(project, ".env"), "API_KEY=secret\n");
   server = spawn(process.execPath, [CLI, project, "--port", String(PORT), "--no-open"], { stdio: "ignore" });
   await waitForServer();
 });
@@ -85,6 +86,12 @@ test("rejects requests for a foreign Host (DNS rebinding)", async () => {
 test("source preview reads project files but not outside them", async () => {
   assert.equal((await get("/source?path=index.js")).status, 200);
   assert.notEqual((await get("/source?path=../../../../etc/hosts")).status, 200);
+});
+
+test("source preview never shows .env files", async () => {
+  const res = await get("/source?path=.env");
+  assert.equal(res.status, 403);
+  assert.ok(!res.body.includes("API_KEY"));
 });
 
 test("rejects an invalid port", () => {
