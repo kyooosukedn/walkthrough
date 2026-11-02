@@ -74,6 +74,47 @@ body {
   height: 100vh;
 }
 
+.onramp, .source-preview { width: 100%; height: 100%; overflow: auto; background: var(--bg-deep); }
+.onramp-inner { max-width: 1080px; margin: 0 auto; padding: 56px 28px 80px; }
+.onramp-kicker { color: var(--accent-secondary); font: 700 12px var(--font-mono); letter-spacing: .14em; }
+.onramp-header h1 { margin-top: 18px; font: 700 clamp(30px, 5vw, 52px)/1.1 var(--font-display); }
+.onramp-header p { margin-top: 14px; color: var(--text-muted); font-size: 16px; }
+.onramp-meta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+.onramp-meta span { padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; color: var(--text-muted); font: 12px var(--font-mono); }
+.onramp-coverage { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 36px; padding: 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); }
+.onramp-coverage strong { width: 100%; font-size: 14px; }
+.onramp-coverage span { padding: 6px 9px; border-radius: 5px; background: var(--bg-elevated); font-size: 12px; }
+.onramp-coverage small { width: 100%; color: var(--text-muted); line-height: 1.5; }
+.onramp-search { position: relative; margin-top: 32px; }
+.onramp-search label { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-weight: 600; }
+.onramp-search input { width: 100%; padding: 14px 16px; border: 1px solid var(--border-active); border-radius: 8px; outline: none; background: var(--bg); color: var(--text); font: 14px var(--font-body); }
+.onramp-search input:focus-visible, .onramp button:focus-visible, .source-preview button:focus-visible { outline: 2px solid var(--accent-secondary); outline-offset: 2px; }
+.onramp-results { position: absolute; z-index: 2; width: 100%; max-height: 300px; overflow: auto; padding: 8px; border: 1px solid var(--border-active); border-radius: 8px; background: var(--bg-elevated); box-shadow: 0 16px 35px #0008; }
+.onramp-results button { display: block; width: 100%; padding: 9px; text-align: left; }
+.onramp-results p, .onramp-results small { display: block; padding: 9px; color: var(--text-muted); }
+.onramp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 30px; }
+.onramp-card { min-width: 0; padding: 22px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); }
+.onramp-card h2 { font: 700 20px var(--font-display); }
+.onramp-card > p { margin: 8px 0 18px; color: var(--text-muted); font-size: 13px; }
+.onramp-card .onramp-empty { line-height: 1.5; }
+.onramp button, .source-preview button { border: 0; background: none; color: var(--text); cursor: pointer; font: inherit; }
+.onramp-path, .onramp-group button { width: 100%; padding: 9px 0; text-align: left; overflow-wrap: anywhere; }
+.onramp-path { display: flex; align-items: center; gap: 8px; color: var(--accent-secondary) !important; font: 13px var(--font-mono) !important; }
+.onramp-group { display: grid; gap: 4px; padding: 12px 0; border-bottom: 1px solid var(--border); font: 12px var(--font-mono); }
+.onramp-group:last-child { border-bottom: 0; }
+.onramp-group strong { color: var(--text-muted); font: 700 12px var(--font-body); }
+.onramp-group button { padding: 2px 0; color: var(--accent-secondary); }
+.onramp-group span { color: var(--text-dim); line-height: 1.5; }
+.onramp-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 30px; }
+.onramp-actions button { display: flex; align-items: center; gap: 8px; padding: 11px 16px; border: 1px solid var(--border-active); border-radius: 7px; background: var(--bg-elevated); }
+.onramp button:hover, .source-preview button:hover { color: var(--accent-secondary); }
+.source-preview { padding: 24px; }
+.source-preview header { display: flex; align-items: center; gap: 20px; padding-bottom: 18px; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
+.source-preview header button { color: var(--accent-secondary); }
+.source-preview p { margin-top: 20px; color: var(--text-muted); }
+.source-preview pre { margin-top: 20px; padding: 20px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); font: 13px/1.6 var(--font-mono); tab-size: 2; }
+@media (max-width: 700px) { .onramp-inner { padding: 32px 16px 60px; } .onramp-grid { grid-template-columns: 1fr; } }
+
 /* ─── Reduced motion ──────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   *,

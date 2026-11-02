@@ -25,7 +25,7 @@ describe("scan()", () => {
     const codemap = await scan(CODEMAP_ROOT);
 
     // Meta
-    expect(codemap.meta.version).toBe("1.0.0");
+    expect(codemap.meta.version).toBe("1.1.0");
     expect(codemap.meta.scannedAt).toBeTruthy();
     expect(codemap.meta.language).toBe("typescript");
     expect(codemap.meta.stats.files).toBeGreaterThan(0);
@@ -61,7 +61,7 @@ describe("writeCodeMap()", () => {
     try {
       expect(existsSync(tmpFile)).toBe(true);
       const parsed = JSON.parse(await readFile(tmpFile, "utf-8"));
-      expect(parsed.meta.version).toBe("1.0.0");
+      expect(parsed.meta.version).toBe("1.1.0");
       expect(parsed.fileTree).toBeDefined();
       expect(parsed.meta.stats.files).toBeGreaterThan(0);
     } finally {

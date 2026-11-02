@@ -23,6 +23,7 @@ import { NextJsRoutesAnalyzer } from "./analyzers/nextjs-routes.js";
 import { ReactComponentAnalyzer } from "./analyzers/react-components.js";
 import { DatabaseAnalyzer } from "./analyzers/database.js";
 import { ExpressRoutesAnalyzer } from "./analyzers/express-routes.js";
+import { deriveOrientation } from "./analyzers/orientation.js";
 
 /**
  * Scan a project and produce a CodeMap blueprint.
@@ -93,7 +94,9 @@ export async function scan(rootPath: string): Promise<CodeMap> {
   if (routesMerged) outputs.push(routesMerged);
   if (componentsOutput) outputs.push(componentsOutput);
   if (databaseOutput) outputs.push(databaseOutput);
-  return mergeOutputs(project, outputs);
+  const map = mergeOutputs(project, outputs);
+  map.orientation = deriveOrientation(map.fileTree);
+  return map;
 }
 
 /** Extract project metadata from the filesystem */

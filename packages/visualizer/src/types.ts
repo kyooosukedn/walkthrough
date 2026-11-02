@@ -14,6 +14,14 @@ export interface CodeMap {
   services?: Service[];
   imports?: ImportGraph;
   tour?: TourDefinition;
+  orientation?: RepoOrientation;
+}
+
+export interface RepoOrientation {
+  docs: string[];
+  manifests: string[];
+  tests: string[];
+  sourceRoots: string[];
 }
 
 export interface CodeMapMeta {

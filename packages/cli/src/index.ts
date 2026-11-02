@@ -7,6 +7,7 @@ import { readFile, stat } from "node:fs/promises";
 import { exec } from "node:child_process";
 
 import { scan, writeCodeMap } from "@walkthrough/scanner";
+import { readSource, SourceError } from "./source.js";
 
 const args = process.argv.slice(2);
 
@@ -81,8 +82,14 @@ async function main() {
 }
 
 // ─── HTTP server ─────────────────────────────────────────────
-async function serve(codemap: unknown, port: number) {
+async function serve(codemap: Awaited<ReturnType<typeof scan>>, port: number) {
   const codemapJson = JSON.stringify(codemap, null, 2);
+  const allowedPaths = new Set<string>();
+  function collectFiles(node: typeof codemap.fileTree): void {
+    if (node.type === "file") allowedPaths.add(node.path);
+    else for (const child of node.children ?? []) collectFiles(child);
+  }
+  collectFiles(codemap.fileTree);
 
   // Prefer the visualizer bundled inside this package (published installs);
   // fall back to the monorepo layout for development.
@@ -92,6 +99,19 @@ async function serve(codemap: unknown, port: number) {
   const hasVisualizer = existsSync(join(visualizerDir, "index.html"));
 
   const server = createServer(async (req, res) => {
+    const requestUrl = new URL(req.url ?? "/", "http://localhost");
+    if (requestUrl.pathname === "/source") {
+      try {
+        const content = await readSource(targetPath, requestUrl.searchParams.get("path") ?? "", allowedPaths);
+        res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8", "X-Content-Type-Options": "nosniff", "Cache-Control": "no-store" });
+        res.end(content);
+      } catch (error) {
+        const status = error instanceof SourceError ? error.status : 500;
+        res.writeHead(status, { "Content-Type": "text/plain; charset=utf-8", "X-Content-Type-Options": "nosniff" });
+        res.end(error instanceof SourceError ? error.message : "Could not read source.");
+      }
+      return;
+    }
     if (req.url === "/codemap.json") {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(codemapJson);
@@ -130,8 +150,8 @@ async function serve(codemap: unknown, port: number) {
     }
   });
 
-  server.listen(port, () => {
-    const url = `http://localhost:${port}`;
+  server.listen(port, "127.0.0.1", () => {
+    const url = `http://127.0.0.1:${port}`;
     console.log(`  ◆ Open: ${url}`);
     open(url);
   }).on("error", (err: NodeJS.ErrnoException) => {
