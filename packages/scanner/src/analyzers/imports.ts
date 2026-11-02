@@ -3,11 +3,8 @@ import { existsSync } from "node:fs";
 import { readFile, readdir, stat } from "node:fs/promises";
 
 import type { ImportGraph, ImportNode, ImportEdge, ProjectInfo, Analyzer, WorkspacePackage } from "../types.js";
-import { resolvePythonImports, resolveGoImports, goModulePath, goPackageIndex } from "./lang-imports.js";
-
-const IGNORE_DIRS = new Set([
-  "node_modules", ".git", ".next", "dist", "build", "coverage", ".cache", ".turbo", ".vercel", "__pycache__",
-]);
+import { resolvePythonImports, resolveGoImports, goModulePath, goPackageIndex, type GoModule } from "./lang-imports.js";
+import { shouldSkipDir } from "./ignore.js";
 
 const PARSEABLE_EXTS = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"]);
 
@@ -29,16 +26,24 @@ export class ImportGraphAnalyzer implements Analyzer {
     const edges: ImportEdge[] = [];
     const edgeIndex = new Map<string, ImportEdge>();
 
-    // Go: imports are package paths under the go.mod module path
-    const goModFile = join(project.rootPath, "go.mod");
-    const goModule = existsSync(goModFile) ? goModulePath(await readFile(goModFile, "utf-8")) : undefined;
-    const goIndex = goModule ? goPackageIndex(files) : new Map<string, string>();
+    // Go: imports are package paths under a go.mod module path (any go.mod in the repo)
+    const goModules: GoModule[] = [];
+    for (const f of files) {
+      if (f !== "go.mod" && !f.endsWith("/go.mod")) continue;
+      try {
+        const path = goModulePath(await readFile(join(project.rootPath, f), "utf-8"));
+        if (path) goModules.push({ path, dir: f.includes("/") ? f.slice(0, f.lastIndexOf("/")) : "" });
+      } catch {
+        // unreadable go.mod — skip
+      }
+    }
+    const goIndex = goModules.length > 0 ? goPackageIndex(files) : new Map<string, string>();
 
     for (const file of files) {
       const fullPath = join(project.rootPath, file);
       const ext = extname(file);
       const isPy = ext === ".py";
-      const isGo = ext === ".go" && !!goModule;
+      const isGo = ext === ".go" && goModules.length > 0;
       if (!PARSEABLE_EXTS.has(ext) && !isPy && !isGo) continue;
 
       try {
@@ -47,7 +52,7 @@ export class ImportGraphAnalyzer implements Analyzer {
         const found: Array<{ raw: string; to: string | null }> = isPy
           ? resolvePythonImports(file, content, fileSet)
           : isGo
-            ? resolveGoImports(file, content, goModule, goIndex)
+            ? resolveGoImports(file, content, goModules, goIndex)
             : extractImports(content).map((raw) => ({
                 raw,
                 to: resolveImport(raw, dir, project.rootPath, fileSet, aliases, workspaces),
@@ -92,7 +97,8 @@ async function collectFiles(root: string, current: string): Promise<string[]> {
   const files: string[] = [];
 
   for (const entry of entries) {
-    if (entry.isDirectory() && IGNORE_DIRS.has(entry.name)) continue;
+    if (entry.isSymbolicLink()) continue;
+    if (entry.isDirectory() && shouldSkipDir(entry.name, join(current, entry.name))) continue;
 
     const fullPath = join(current, entry.name);
     if (entry.isDirectory()) {

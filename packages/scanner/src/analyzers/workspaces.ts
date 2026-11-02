@@ -32,7 +32,7 @@ export async function findWorkspacePackages(rootPath: string, tree: FileTreeNode
         dir,
         description: typeof pkg.description === "string" ? pkg.description : undefined,
         sourceEntry: toSourcePath(dir, mainTarget, fileSet),
-        bins: bins.map((b) => toSourcePath(dir, b, fileSet)).filter((b): b is string => !!b),
+        bins: bins.map((b) => toSourcePath(dir, b, fileSet, false)).filter((b): b is string => !!b),
       });
     } catch {
       // Malformed package.json — skip
@@ -47,8 +47,14 @@ const SOURCE_EXTS = [".ts", ".tsx", ".js", ".jsx", ".mjs"];
  * Map a published path (often build output like "./dist/index.js") back to
  * the source file a reader should open ("src/index.ts").
  */
-export function toSourcePath(dir: string, target: string | undefined, fileSet: Set<string>): string | undefined {
-  const rel = (target ?? "").replace(/^\.\//, "");
+export function toSourcePath(
+  dir: string,
+  target: string | undefined,
+  fileSet: Set<string>,
+  /** Fall back to src/index.* when the target can't be mapped (library entry, not bins) */
+  fallbackToIndex = true,
+): string | undefined {
+  const rel = (target ?? "").replace(/\\/g, "/").replace(/^(\.\/)+/, "");
   const noExt = rel.replace(/\.(m?js|cjs|jsx?|tsx?)$/, "");
   const candidates: string[] = [];
   if (rel) {
@@ -56,9 +62,11 @@ export function toSourcePath(dir: string, target: string | undefined, fileSet: S
     const srcSwapped = noExt.replace(/^(dist|build|lib|out|esm|cjs)\//, "src/");
     for (const ext of SOURCE_EXTS) candidates.push(srcSwapped + ext, noExt + ext);
   }
-  for (const ext of SOURCE_EXTS) candidates.push(`src/index${ext}`, `index${ext}`);
+  if (fallbackToIndex || !rel) {
+    for (const ext of SOURCE_EXTS) candidates.push(`src/index${ext}`, `index${ext}`);
+  }
   for (const c of candidates) {
-    const full = `${dir}/${c}`;
+    const full = dir ? `${dir}/${c}` : c;
     if (fileSet.has(full)) return full;
   }
   return undefined;

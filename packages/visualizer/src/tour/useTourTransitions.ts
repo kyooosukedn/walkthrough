@@ -46,7 +46,8 @@ export function useTourTransitions(state: TourState | null) {
       // Dim non-relevant nodes, highlight focused ones
       setNodes((nodes) =>
         nodes.map((node) => {
-          const isFocused = focusNodeIds.includes(node.id);
+          // Nothing to point at on this view? Keep everything visible instead of dimming all
+          const isFocused = focusNodeIds.length === 0 || focusNodeIds.includes(node.id);
           return {
             ...node,
             style: {

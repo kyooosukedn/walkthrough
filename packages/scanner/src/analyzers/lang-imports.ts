@@ -11,13 +11,42 @@ export interface ResolvedImport {
 
 // ─── Python ──────────────────────────────────────────────────
 
-const PY_FROM_RE = /^[ \t]*from[ \t]+(\.*)([\w.]*)[ \t]+import[ \t]+\(?([^\n#]*)/gm;
+// "from x import a" / "from x import (a,\n b)" — the parenthesised form may span lines
+const PY_FROM_RE = /^[ \t]*from[ \t]+(\.{0,64})([\w.]*)[ \t]+import[ \t]+(\([^)]*\)|[^\n#]*)/gm;
 const PY_IMPORT_RE = /^[ \t]*import[ \t]+([\w., \t]+)/gm;
+
+const parentOf = (p: string) => (p.includes("/") ? p.slice(0, p.lastIndexOf("/")) : "");
+
+const rootsCache = new WeakMap<Set<string>, string[]>();
+
+/**
+ * Folders that absolute imports resolve from (like sys.path entries):
+ * the parent of every top-level package, folders holding pyproject.toml /
+ * setup.py, and the repo root. Python 3 never resolves "import x" relative to
+ * the importing file, so neither do we.
+ */
+export function pythonRoots(files: Set<string>): string[] {
+  const cached = rootsCache.get(files);
+  if (cached) return cached;
+  const roots = new Set<string>([""]);
+  for (const f of files) {
+    const name = f.slice(f.lastIndexOf("/") + 1);
+    if (name === "pyproject.toml" || name === "setup.py" || name === "setup.cfg") roots.add(parentOf(f));
+    if (name === "__init__.py") {
+      let pkg = parentOf(f);
+      while (files.has(`${parentOf(pkg)}/__init__.py`) && pkg.includes("/")) pkg = parentOf(pkg);
+      roots.add(parentOf(pkg));
+    }
+  }
+  const list = [...roots].sort((a, b) => b.length - a.length);
+  rootsCache.set(files, list);
+  return list;
+}
 
 export function resolvePythonImports(file: string, content: string, files: Set<string>): ResolvedImport[] {
   const out: ResolvedImport[] = [];
-  const fileDir = file.includes("/") ? file.slice(0, file.lastIndexOf("/")) : "";
-  const ancestors = ancestorsOf(fileDir);
+  const fileDir = parentOf(file);
+  const roots = pythonRoots(files);
 
   const tryModule = (bases: string[], modPath: string, names: string[]): string[] => {
     for (const base of bases) {
@@ -28,8 +57,9 @@ export function resolvePythonImports(file: string, content: string, files: Set<s
         .flatMap((p) => [`${p}.py`, `${p}/__init__.py`])
         .filter((p) => files.has(p));
       if (subs.length > 0) return subs;
-      if (!modPath) continue;
-      for (const candidate of [`${prefix}.py`, `${prefix}/__init__.py`]) {
+      // "from pkg import name" where name lives in pkg/__init__.py (or pkg.py)
+      const candidates = modPath ? [`${prefix}.py`, `${prefix}/__init__.py`] : [`${prefix ? prefix + "/" : ""}__init__.py`];
+      for (const candidate of candidates) {
         if (files.has(candidate)) return [candidate];
       }
     }
@@ -40,15 +70,24 @@ export function resolvePythonImports(file: string, content: string, files: Set<s
   PY_FROM_RE.lastIndex = 0;
   while ((m = PY_FROM_RE.exec(content)) !== null) {
     const [, dots, module, namesRaw] = m;
-    const names = namesRaw.split(",").map((n) => n.trim().split(/\s+/)[0]).filter((n) => /^\w+$/.test(n));
+    const names = namesRaw
+      .replace(/[()]/g, "")
+      .split(",")
+      .map((n) => n.trim().split(/\s+/)[0])
+      .filter((n) => /^\w+$/.test(n));
     const modPath = module.replace(/\./g, "/");
     let bases: string[];
     if (dots.length > 0) {
+      // One dot = this package; each extra dot climbs one level. Climbing
+      // past the repo root is an error in Python — resolve nothing.
+      const depth = fileDir ? fileDir.split("/").length : 0;
+      if (dots.length - 1 > depth) continue;
       let base = fileDir;
-      for (let i = 1; i < dots.length; i++) base = base.includes("/") ? base.slice(0, base.lastIndexOf("/")) : "";
+      for (let i = 1; i < dots.length; i++) base = parentOf(base);
       bases = [base];
     } else {
-      bases = ancestors;
+      if (!modPath) continue;
+      bases = roots;
     }
     for (const to of tryModule(bases, modPath, names)) out.push({ raw: `${dots}${module}`, to });
   }
@@ -58,18 +97,10 @@ export function resolvePythonImports(file: string, content: string, files: Set<s
     for (const part of m[1].split(",")) {
       const module = part.trim().split(/\s+/)[0];
       if (!module) continue;
-      for (const to of tryModule(ancestors, module.replace(/\./g, "/"), [])) out.push({ raw: module, to });
+      for (const to of tryModule(roots, module.replace(/\./g, "/"), [])) out.push({ raw: module, to });
     }
   }
   return out.filter((r) => r.to !== file);
-}
-
-/** "a/b/c" -> ["a/b/c", "a/b", "a", ""] — candidate import roots, nearest first. */
-function ancestorsOf(dir: string): string[] {
-  const parts = dir ? dir.split("/") : [];
-  const out: string[] = [];
-  for (let i = parts.length; i >= 0; i--) out.push(parts.slice(0, i).join("/"));
-  return out;
 }
 
 // ─── Go ──────────────────────────────────────────────────────
@@ -93,8 +124,14 @@ export function goPackageIndex(files: Iterable<string>): Map<string, string> {
   return index;
 }
 
-export function resolveGoImports(file: string, content: string, modulePath: string | undefined, pkgIndex: Map<string, string>): ResolvedImport[] {
-  if (!modulePath) return [];
+/** A Go module in the repo: its import path and the folder holding its go.mod. */
+export interface GoModule {
+  path: string;
+  dir: string;
+}
+
+export function resolveGoImports(file: string, content: string, modules: GoModule[], pkgIndex: Map<string, string>): ResolvedImport[] {
+  if (modules.length === 0) return [];
   const specs: string[] = [];
   let m: RegExpExecArray | null;
   GO_IMPORT_BLOCK_RE.lastIndex = 0;
@@ -108,8 +145,13 @@ export function resolveGoImports(file: string, content: string, modulePath: stri
 
   const out: ResolvedImport[] = [];
   for (const spec of specs) {
-    if (spec !== modulePath && !spec.startsWith(modulePath + "/")) continue;
-    const dir = spec === modulePath ? "" : spec.slice(modulePath.length + 1);
+    // Longest matching module path wins (nested modules inside one repo)
+    const mod = modules
+      .filter((mo) => spec === mo.path || spec.startsWith(mo.path + "/"))
+      .sort((a, b) => b.path.length - a.path.length)[0];
+    if (!mod) continue;
+    const rest = spec === mod.path ? "" : spec.slice(mod.path.length + 1);
+    const dir = [mod.dir, rest].filter(Boolean).join("/");
     const to = pkgIndex.get(dir);
     if (to && to !== file) out.push({ raw: spec, to });
   }

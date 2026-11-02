@@ -298,8 +298,9 @@ export function generateTour(project: ProjectInfo): TourDefinition {
   const imports = (project as ProjectInfo & { _imports?: ImportGraph })._imports;
   // A repo whose root is full of source files (a Go/Python library) is flat.
   const rootFlat = pickFlatSource(tree && { ...tree, children: tree.children?.filter((c) => c.type === "file") });
-  const sourceRoot = rootFlat && rootFlat.files.length >= 5 ? undefined : pickSourceRoot(tree, entryPoints, project.workspaces);
-  const flat = sourceRoot ? undefined : pickFlatSource(tree);
+  const rootIsCode = !!rootFlat && rootFlat.files.length >= 5;
+  const sourceRoot = rootIsCode ? undefined : pickSourceRoot(tree, entryPoints, project.workspaces);
+  const flat = sourceRoot ? undefined : rootIsCode ? rootFlat : pickFlatSource(tree);
   if (flat) {
     const where = flat.node.path && flat.node.path !== "." ? `\`${flat.node.path}/\`` : "the project root";
     steps.push({

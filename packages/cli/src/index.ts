@@ -140,7 +140,9 @@ async function serve(codemap: Awaited<ReturnType<typeof scan>>, port: number) {
 
     if (!hasVisualizer) {
       res.writeHead(200, { "Content-Type": "text/html" });
-      res.end(`<html><body style="background:#0A0A0F;color:#E8E8F0;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh"><pre>${codemapJson}</pre></body></html>`);
+      // Escape: file names in the map are untrusted (a file can be named "<script>...")
+      const safe = codemapJson.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      res.end(`<html><body style="background:#0A0A0F;color:#E8E8F0;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh"><pre>${safe}</pre></body></html>`);
       return;
     }
 
@@ -156,9 +158,8 @@ async function serve(codemap: Awaited<ReturnType<typeof scan>>, port: number) {
     let filePath = resolve(visualizerDir, "." + pathname);
     const within = relative(visualizerDir, filePath);
     const escapes = within === ".." || within.startsWith(".." + sep) || isAbsolute(within);
-    if (escapes || !existsSync(filePath) || (await stat(filePath)).isDirectory()) {
-      filePath = join(visualizerDir, "index.html");
-    }
+    const isFile = !escapes && (await stat(filePath).then((s) => s.isFile(), () => false));
+    if (!isFile) filePath = join(visualizerDir, "index.html");
 
     try {
       const content = await readFile(filePath);

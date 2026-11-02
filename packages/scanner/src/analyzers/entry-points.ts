@@ -3,10 +3,8 @@ import { readdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 
 import type { EntryPoint, ProjectInfo, FileTreeNode, Analyzer } from "../types.js";
-
-const IGNORE_DIRS = new Set([
-  "node_modules", ".git", ".next", "dist", "build", "coverage", ".cache", ".turbo", ".vercel", "__pycache__",
-]);
+import { shouldSkipDir } from "./ignore.js";
+import { collectFilePaths, toSourcePath } from "./workspaces.js";
 
 /** Patterns for detecting entry points */
 const FILE_PATTERNS: Array<{
@@ -39,20 +37,20 @@ export class EntryPointAnalyzer implements Analyzer {
   async analyze(project: ProjectInfo): Promise<{ entryPoints: EntryPoint[] }> {
     const entryPoints: EntryPoint[] = [];
 
-    // Check package.json for main/bin fields
+    // package.json main/bin — mapped from build output (dist/) back to source,
+    // and dropped if the file isn't in the scanned project
     if (project.packageJson) {
       const pkg = project.packageJson;
-      if (typeof pkg.main === "string") {
-        entryPoints.push({ file: normalizePath(pkg.main), type: "server" });
-      }
-      if (typeof pkg.bin === "string") {
-        entryPoints.push({ file: normalizePath(pkg.bin), type: "cli" });
-      }
-      if (typeof pkg.bin === "object") {
-        for (const bin of Object.values(pkg.bin as Record<string, string>)) {
-          entryPoints.push({ file: normalizePath(bin), type: "cli" });
-        }
-      }
+      const fileSet = project.fileTree ? collectFilePaths(project.fileTree) : new Set<string>();
+      const add = (target: unknown, type: EntryPoint["type"], fallback: boolean) => {
+        if (typeof target !== "string") return;
+        const file = toSourcePath("", target, fileSet, fallback);
+        if (file) entryPoints.push({ file, type });
+      };
+      const bins = typeof pkg.bin === "string" ? [pkg.bin]
+        : pkg.bin && typeof pkg.bin === "object" ? Object.values(pkg.bin as Record<string, unknown>) : [];
+      for (const bin of bins) add(bin, "cli", false);
+      add(pkg.main, "server", false);
     }
 
     // Monorepo packages' bin commands are real entry points too
@@ -145,7 +143,8 @@ async function collectSourceFiles(root: string, current: string): Promise<string
   const files: string[] = [];
 
   for (const entry of entries) {
-    if (entry.isDirectory() && IGNORE_DIRS.has(entry.name)) continue;
+    if (entry.isSymbolicLink()) continue;
+    if (entry.isDirectory() && shouldSkipDir(entry.name, join(current, entry.name))) continue;
 
     const fullPath = join(current, entry.name);
     if (entry.isDirectory()) {
@@ -159,10 +158,6 @@ async function collectSourceFiles(root: string, current: string): Promise<string
   }
 
   return files;
-}
-
-function normalizePath(p: string): string {
-  return p.replace(/\\/g, "/");
 }
 
 function deduplicate(entries: EntryPoint[]): EntryPoint[] {

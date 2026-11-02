@@ -3,6 +3,7 @@ import { describe, it, expect } from "vitest";
 import type { EntryPoint, FileTreeNode, ProjectInfo } from "../types.js";
 import { generateTour, pickSourceRoot, projectName } from "./tour-generator.js";
 import { rankEntryPoints } from "./entry-points.js";
+import { toSourcePath } from "./workspaces.js";
 
 function dir(path: string, children: FileTreeNode[] = []): FileTreeNode {
   return { name: path.split("/").pop() || path, path, type: "directory", children };
@@ -121,5 +122,19 @@ describe("generateTour", () => {
     const s = step("configuration")!;
     expect(s.focusNodeIds).toContain("pyproject.toml");
     expect(s.focusNodeIds).not.toContain(".env");
+  });
+});
+
+describe("toSourcePath / root package.json entries", () => {
+  const files = new Set(["bin/tool.js", "src/index.ts", "src/cli.ts"]);
+  it("strips ./ and maps dist/ output back to src/", () => {
+    expect(toSourcePath("", "./bin/tool.js", files, false)).toBe("bin/tool.js");
+    expect(toSourcePath("", "dist/cli.js", files, false)).toBe("src/cli.ts");
+  });
+  it("never invents a bin entry that does not exist", () => {
+    expect(toSourcePath("", "./dist/missing.js", files, false)).toBeUndefined();
+  });
+  it("has no leading slash for the repo root", () => {
+    expect(toSourcePath("", undefined, files)).toBe("src/index.ts");
   });
 });
