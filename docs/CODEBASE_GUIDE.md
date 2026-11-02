@@ -1,49 +1,76 @@
-# Walkthrough codebase guide
+# How Walkthrough works (plain English)
 
-This guide describes the code running today. Start with one question: **How does a local repository become the first screen in the browser?**
-
-## The path through the code
+## The whole thing in 30 seconds
 
 ```text
-packages/cli/src/index.ts
-  → scan(targetPath)
-packages/scanner/src/scanner.ts
-  → file tree, imports, entry points, supported analyzers
-  → deriveOrientation(fileTree)
-  → CodeMap JSON
-packages/cli/src/index.ts
-  → writes codemap.json and serves /codemap.json
-packages/visualizer/src/data/context.tsx
-  → loads CodeMap
-packages/visualizer/src/App.tsx
-  → WelcomeScreen or optional graph/tour
-packages/visualizer/src/ui/WelcomeScreen.tsx
-  → landmarks, entry-file suggestions, path search
+  you run:  walkthrough ./some-project
+                 │
+   1. SCANNER    reads the project's files (never runs them)
+                 and writes down what it finds as one JSON file
+                 │
+   2. CLI        starts a tiny web server on your own machine
+                 and opens the browser
+                 │
+   3. VISUALIZER a web page that reads that JSON and draws
+                 the map + the guided tour
 ```
 
-The scanner and browser share a JSON contract. The scanner's types live in [`packages/scanner/src/types.ts`](../packages/scanner/src/types.ts); the browser mirrors them in [`packages/visualizer/src/types.ts`](../packages/visualizer/src/types.ts). Only `meta` and `fileTree` are required. Everything else is optional, so an unfamiliar language can still show structure.
+That's it. Three parts, and they only talk through the JSON ("codemap").
+The scanner never knows a browser exists; the browser never reads your disk.
 
-## Where the new first screen gets its facts
+## Part 1 — the scanner (`packages/scanner/src/`)
 
-[`file-tree.ts`](../packages/scanner/src/analyzers/file-tree.ts) walks the checkout and ignores build outputs and dependencies. [`orientation.ts`](../packages/scanner/src/analyzers/orientation.ts) classifies paths **already found in that tree** into docs, manifests, test files, and source roots. It does not read or execute those files. [`entry-points.ts`](../packages/scanner/src/analyzers/entry-points.ts) suggests conventional starting files for JavaScript/TypeScript, Python, Go, and Rust. The browser filters those suggestions against actual scanned paths so a stale package entry does not become a clickable claim.
+It answers four questions about any project:
 
-[`WelcomeScreen.tsx`](../packages/visualizer/src/ui/WelcomeScreen.tsx) renders the groups, a small set of suggestions, and path search. Search filters the in-memory file list and caps visible matches. Clicking a file switches [`App.tsx`](../packages/visualizer/src/App.tsx) to a read-only preview. [`source.ts`](../packages/cli/src/source.ts) permits only scanned paths inside the checkout, rejects binary and large files, and returns plain UTF-8 text. The local server binds to loopback in [`index.ts`](../packages/cli/src/index.ts).
+| Question | File that answers it |
+|---|---|
+| What files and folders are there? | `analyzers/file-tree.ts` |
+| Which file uses which? (imports) | `analyzers/imports.ts` (JS/TS), `analyzers/lang-imports.ts` (Python, Go) |
+| Where does the program start? | `analyzers/entry-points.ts` — also ranks them so tests/examples never come first |
+| Is it a monorepo? Which packages? | `analyzers/workspaces.ts` |
 
-Other analyzers are deeper but narrower. [`nextjs-routes.ts`](../packages/scanner/src/analyzers/nextjs-routes.ts) and [`express-routes.ts`](../packages/scanner/src/analyzers/express-routes.ts) detect some JavaScript routes; [`react-components.ts`](../packages/scanner/src/analyzers/react-components.ts) and [`database.ts`](../packages/scanner/src/analyzers/database.ts) add specialized views. [`tour-generator.ts`](../packages/scanner/src/analyzers/tour-generator.ts) creates the older architecture tour. None of these is a universal or exact runtime call graph.
+Then it adds extras when it recognizes a framework:
 
-## Try it yourself
+| Extra | File |
+|---|---|
+| Web routes (Next.js, Express) | `analyzers/nextjs-routes.ts`, `analyzers/express-routes.ts` |
+| React components | `analyzers/react-components.ts` |
+| Database tables (Prisma, SQL) | `analyzers/database.ts` |
+| Docs / tests / source landmarks | `analyzers/orientation.ts` |
 
-From the repo root:
+Finally it writes the tour — a list of steps with text and which boxes to highlight:
+`analyzers/tour-generator.ts`. Each step answers one question a newcomer has:
+*what's here → where does it start → how is the code split → how do the parts connect → what's the config.*
 
-```powershell
-npm install
-npm run build
-npm test
-node packages/cli/dist/index.js . --port 3102
+`scanner.ts` runs all of the above in order. `types.ts` describes the JSON shape.
+
+## Part 2 — the CLI (`packages/cli/src/`)
+
+- `index.ts` — reads your command, runs the scanner, serves the web page on `127.0.0.1` only.
+- `source.ts` — lets the page show a file's text, but only files inside the scanned project.
+
+Safety rules live here: no access from other machines, no reading outside the project,
+no requests from other websites. `server.test.ts` checks each rule.
+
+## Part 3 — the visualizer (`packages/visualizer/src/`)
+
+A normal React web app.
+
+- `App.tsx` — picks the screen: welcome, map, or file preview.
+- `ui/WelcomeScreen.tsx` — the first screen (start-here files, landmarks, search).
+- `views/` — the maps: overview, routes, components, database.
+- `tour/` — the guided tour: `TourEngine.ts` decides which step you're on,
+  `useTourTransitions.ts` moves the camera, `NarrationPanel.tsx` shows the text.
+
+## Try it
+
+```bash
+npm ci && npm run build && npm test
+node packages/cli/dist/index.js .        # Walkthrough explains itself
 ```
 
-On the first screen, search for `orientation.ts`, open it, and find `deriveOrientation`. Then open `scanner.ts` and find the call that puts its result into `map.orientation`. That one call connects the filesystem scan to the browser. Go back and search for `source.ts`; its path checks explain why the preview can show local source without reading an arbitrary file.
+## Deliberate limits
 
-## What is still missing
-
-This screen helps you find and inspect files. It does not yet walk you through a selected backend or frontend workflow, explain each function, or give you a hands-on change and check. That is the next product slice. The first-run decision and build plan are in [`docs/product/first-run-journey.md`](./product/first-run-journey.md) and [`docs/superpowers/plans/2026-10-02-universal-onramp.md`](./superpowers/plans/2026-10-02-universal-onramp.md).
+- It reads code with simple pattern matching, not a full compiler — fast and dependency-free,
+  occasionally misses an unusual import. The map is a map, not a proof.
+- Speed is not the bottleneck: ~25k files scan in about 4 seconds.
