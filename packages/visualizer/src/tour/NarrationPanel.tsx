@@ -63,13 +63,16 @@ export function NarrationPanel({ engine, state }: NarrationPanelProps) {
 
       {/* Content */}
       {!collapsed && (
-        <div style={{ padding: "12px 16px 16px", maxHeight: 200, overflowY: "auto" }}>
+        <div style={{ padding: "12px 16px 16px" }}>
+          {/* Only the narration scrolls, so Previous/Next stay visible */}
           <div
             style={{
               fontFamily: "var(--font-body)",
               fontSize: 14,
               color: "var(--text)",
               lineHeight: 1.6,
+              maxHeight: 170,
+              overflowY: "auto",
             }}
           >
             {renderDescription(currentStep.description)}
@@ -146,8 +149,32 @@ const navBtnStyle: React.CSSProperties = {
   transition: "all 150ms ease",
 };
 
-/** Simple markdown: bold and inline code */
+/** Simple markdown: paragraphs, "- " bullet lists, bold and inline code */
 function renderDescription(text: string): React.ReactNode {
+  const blocks: React.ReactNode[] = [];
+  let list: string[] = [];
+  const flushList = () => {
+    if (list.length === 0) return;
+    blocks.push(
+      <ul key={blocks.length} style={{ margin: "6px 0", paddingLeft: 20, display: "grid", gap: 2 }}>
+        {list.map((item, i) => <li key={i}>{renderInline(item)}</li>)}
+      </ul>,
+    );
+    list = [];
+  };
+  for (const line of text.split("\n")) {
+    if (line.startsWith("- ")) {
+      list.push(line.slice(2));
+    } else {
+      flushList();
+      if (line.trim()) blocks.push(<p key={blocks.length} style={{ margin: "4px 0" }}>{renderInline(line)}</p>);
+    }
+  }
+  flushList();
+  return blocks;
+}
+
+function renderInline(text: string): React.ReactNode {
   const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
   return parts.map((part, i) => {
     if (part.startsWith("**") && part.endsWith("**")) {

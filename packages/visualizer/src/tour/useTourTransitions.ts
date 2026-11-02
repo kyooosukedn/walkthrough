@@ -10,7 +10,7 @@ import type { TourState } from "./TourEngine.js";
  * - Highlight/dim nodes based on tour step
  */
 export function useTourTransitions(state: TourState | null) {
-  const { fitView, setViewport, setNodes } = useReactFlow();
+  const { fitView, setViewport, setNodes, getNodes } = useReactFlow();
   const prevStateRef = useRef<string>("");
 
   useEffect(() => {
@@ -21,7 +21,10 @@ export function useTourTransitions(state: TourState | null) {
       if (stepKey === prevStateRef.current) return;
       prevStateRef.current = stepKey;
 
-      const { focusNodeIds, cameraPosition } = state.currentStep;
+      const { cameraPosition } = state.currentStep;
+      // A step may point at nodes deeper than this view draws (e.g.
+      // backend/app/api); highlight the nearest ancestor that is on screen.
+      const focusNodeIds = resolveFocus(state.currentStep.focusNodeIds, new Set(getNodes().map((n) => n.id)));
 
       // Camera movement
       if (cameraPosition) {
@@ -34,7 +37,10 @@ export function useTourTransitions(state: TourState | null) {
           nodes: focusNodeIds.map((id) => ({ id })),
           duration: 600,
           padding: 0.3,
+          maxZoom: 1.2,
         });
+      } else {
+        fitView({ duration: 600, padding: 0.1 });
       }
 
       // Dim non-relevant nodes, highlight focused ones
@@ -66,5 +72,18 @@ export function useTourTransitions(state: TourState | null) {
       );
       fitView({ duration: 400 });
     }
-  }, [state, fitView, setViewport, setNodes]);
+  }, [state, fitView, setViewport, setNodes, getNodes]);
+}
+
+/** Map each focus id to itself or its nearest ancestor path present in the graph. */
+export function resolveFocus(ids: string[], present: Set<string>): string[] {
+  const out = new Set<string>();
+  for (const id of ids) {
+    let path = id;
+    while (path && !present.has(path)) {
+      path = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
+    }
+    if (path) out.add(path);
+  }
+  return [...out];
 }

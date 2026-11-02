@@ -18,7 +18,7 @@ import { SCHEMA_VERSION } from "./types.js";
 import { FileTreeAnalyzer } from "./analyzers/file-tree.js";
 import { ImportGraphAnalyzer } from "./analyzers/imports.js";
 import { EntryPointAnalyzer } from "./analyzers/entry-points.js";
-import { TourGeneratorAnalyzer } from "./analyzers/tour-generator.js";
+import { TourGeneratorAnalyzer, projectName } from "./analyzers/tour-generator.js";
 import { NextJsRoutesAnalyzer } from "./analyzers/nextjs-routes.js";
 import { ReactComponentAnalyzer } from "./analyzers/react-components.js";
 import { DatabaseAnalyzer } from "./analyzers/database.js";
@@ -146,7 +146,7 @@ function mergeOutputs(project: ProjectInfo, outputs: AnalyzerOutput[]): CodeMap 
   }
 
   const meta: CodeMapMeta = {
-    name: (project.packageJson?.name as string) || basename(project.rootPath),
+    name: projectName(project),
     version: SCHEMA_VERSION,
     scannedAt: new Date().toISOString(),
     frameworks: detectFrameworks(project),
