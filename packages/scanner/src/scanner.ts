@@ -24,6 +24,7 @@ import { ReactComponentAnalyzer } from "./analyzers/react-components.js";
 import { DatabaseAnalyzer } from "./analyzers/database.js";
 import { ExpressRoutesAnalyzer } from "./analyzers/express-routes.js";
 import { deriveOrientation } from "./analyzers/orientation.js";
+import { findWorkspacePackages, collectFilePaths } from "./analyzers/workspaces.js";
 
 /**
  * Scan a project and produce a CodeMap blueprint.
@@ -43,6 +44,7 @@ export async function scan(rootPath: string): Promise<CodeMap> {
   const fileTreeAnalyzer = new FileTreeAnalyzer();
   const treeOutput = await fileTreeAnalyzer.analyze(project);
   project.fileTree = treeOutput.fileTree;
+  project.workspaces = await findWorkspacePackages(rootPath, project.fileTree, collectFilePaths(project.fileTree));
 
   // Phase 2: Imports + Entry points (parallel, both need file tree)
   const importAnalyzer = new ImportGraphAnalyzer();

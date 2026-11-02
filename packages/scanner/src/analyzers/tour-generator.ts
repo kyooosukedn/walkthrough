@@ -8,6 +8,8 @@ import type {
   ProjectInfo,
   Analyzer,
   FileTreeNode,
+  ImportGraph,
+  WorkspacePackage,
 } from "../types.js";
 import { isNoisePath } from "./entry-points.js";
 
@@ -92,6 +94,11 @@ export function projectName(project: ProjectInfo): string {
   return basename(project.rootPath) || "this project";
 }
 
+function firstSentence(text: string, max = 90): string {
+  const sentence = text.replace(/^[^\w]+/, "").split(/(?<=\.)\s/)[0].replace(/\.$/, "");
+  return sentence.length > max ? sentence.slice(0, max - 1).trimEnd() + "…" : sentence;
+}
+
 function describeDir(name: string): string {
   const role = DIR_ROLES[name.toLowerCase()];
   return role ? `\`${name}/\` — ${role}` : `\`${name}/\``;
@@ -117,7 +124,23 @@ function findNode(tree: FileTreeNode | undefined, path: string): FileTreeNode | 
  * organized: the folder holding the top entry point if it has structure,
  * else the first conventional source folder with at least two modules.
  */
-export function pickSourceRoot(tree: FileTreeNode | undefined, entryPoints: EntryPoint[]): FileTreeNode | undefined {
+export function pickSourceRoot(
+  tree: FileTreeNode | undefined,
+  entryPoints: EntryPoint[],
+  workspaces: WorkspacePackage[] = [],
+): FileTreeNode | undefined {
+  // Monorepo: the top folder holding most packages (packages/, apps/, ...)
+  const topCounts = new Map<string, number>();
+  for (const ws of workspaces) {
+    const top = ws.dir.split("/")[0];
+    if (ws.dir.includes("/")) topCounts.set(top, (topCounts.get(top) ?? 0) + 1);
+  }
+  const [bestTop, bestCount] = [...topCounts.entries()].sort((a, b) => b[1] - a[1])[0] ?? [];
+  if (bestTop && bestCount >= 2) {
+    const node = tree?.children?.find((c) => c.path === bestTop);
+    if (node) return node;
+  }
+
   const candidates: FileTreeNode[] = [];
   for (const ep of entryPoints.slice(0, 3)) {
     const parts = ep.file.split("/");
@@ -136,7 +159,63 @@ export function pickSourceRoot(tree: FileTreeNode | undefined, entryPoints: Entr
       if (nested) candidates.push(nested);
     }
   }
-  return candidates.find((c) => childDirs(c).length >= 2);
+  return candidates.find((c) => childDirs(c).filter((d) => !WRAPPER_DIRS.has(d.name)).length >= 2);
+}
+
+/** Folders that wrap a single package's code rather than split it into modules. */
+const WRAPPER_DIRS = new Set(["src", "scripts", "bin", "dist", "build", "docs", "public", "assets", "static"]);
+
+const SOURCE_FILE_RE = /\.(ts|tsx|js|jsx|mjs|py|go|rs)$/;
+
+/**
+ * For projects whose code is a flat set of files (express's lib/, a Go
+ * package at the repo root), pick that folder and its largest source files.
+ */
+export function pickFlatSource(tree: FileTreeNode | undefined): { node: FileTreeNode; files: FileTreeNode[] } | undefined {
+  const candidates = [
+    ...["lib", "src", "pkg"].map((n) => tree?.children?.find((c) => c.type === "directory" && c.name === n)),
+    tree,
+  ];
+  for (const node of candidates) {
+    if (!node) continue;
+    const files = (node.children ?? [])
+      .filter((c) => c.type === "file" && SOURCE_FILE_RE.test(c.name) && !isNoisePath(c.name) && !/\.config\./.test(c.name))
+      .sort((a, b) => (b.size ?? 0) - (a.size ?? 0));
+    if (files.length >= 3) return { node, files: files.slice(0, 8) };
+  }
+  return undefined;
+}
+
+interface Connection { from: string; to: string; fromPath: string; toPath: string; count: number }
+
+function pushConnections(steps: TourStep[], connections: Connection[]): void {
+  if (connections.length === 0) return;
+  const top = connections.slice(0, 6);
+  steps.push({
+    id: "connections",
+    title: "How the parts connect",
+    description: `Which parts depend on which (from real import statements):\n\n${top
+      .map((c) => `- \`${c.from}\` uses \`${c.to}\` (${c.count} import${c.count === 1 ? "" : "s"})`)
+      .join("\n")}`,
+    focusNodeIds: [...new Set(top.flatMap((c) => [c.fromPath, c.toPath]))],
+  });
+}
+
+/** Count import edges between sibling modules (folders or files), strongest links first. */
+export function moduleConnections(modules: FileTreeNode[], imports: ImportGraph | undefined): Connection[] {
+  if (!imports) return [];
+  const moduleOf = (file: string) => modules.find((m) => file === m.path || file.startsWith(m.path + "/"));
+  const counts = new Map<string, Connection>();
+  for (const edge of imports.edges) {
+    const a = moduleOf(edge.from);
+    const b = moduleOf(edge.to);
+    if (!a || !b || a === b) continue;
+    const key = a.path + "\0" + b.path;
+    const c = counts.get(key) ?? { from: a.name, to: b.name, fromPath: a.path, toPath: b.path, count: 0 };
+    c.count++;
+    counts.set(key, c);
+  }
+  return [...counts.values()].sort((x, y) => y.count - x.count);
 }
 
 export function generateTour(project: ProjectInfo): TourDefinition {
@@ -187,7 +266,13 @@ export function generateTour(project: ProjectInfo): TourDefinition {
     });
   }
 
-  const realRoutes = routes.filter((r) => !isNoisePath(r.file));
+  const seenRoutes = new Set<string>();
+  const realRoutes = routes.filter((r) => {
+    const key = `${r.method} ${r.path}`;
+    if (isNoisePath(r.file) || seenRoutes.has(key)) return false;
+    seenRoutes.add(key);
+    return true;
+  });
   if (realRoutes.length > 0) {
     const isApi = (r: Route) => /(^|\/)route\.[jt]sx?$/.test(r.file) || r.file.split("/").includes("api") || r.method !== "GET";
     const pages = realRoutes.filter((r) => !isApi(r));
@@ -210,15 +295,39 @@ export function generateTour(project: ProjectInfo): TourDefinition {
     });
   }
 
-  const sourceRoot = pickSourceRoot(tree, entryPoints);
-  if (sourceRoot) {
-    const modules = childDirs(sourceRoot).slice(0, 8);
+  const imports = (project as ProjectInfo & { _imports?: ImportGraph })._imports;
+  // A repo whose root is full of source files (a Go/Python library) is flat.
+  const rootFlat = pickFlatSource(tree && { ...tree, children: tree.children?.filter((c) => c.type === "file") });
+  const sourceRoot = rootFlat && rootFlat.files.length >= 5 ? undefined : pickSourceRoot(tree, entryPoints, project.workspaces);
+  const flat = sourceRoot ? undefined : pickFlatSource(tree);
+  if (flat) {
+    const where = flat.node.path && flat.node.path !== "." ? `\`${flat.node.path}/\`` : "the project root";
     steps.push({
       id: "source-modules",
       title: "How the code is organized",
-      description: `Inside \`${sourceRoot.path}/\`, the code is split into:\n\n${modules.map((d) => `- ${describeDir(d.name)}`).join("\n")}`,
+      description: `The core code lives directly in ${where}. The biggest files, where most of the logic is:\n\n${flat.files
+        .map((f) => `- \`${f.name}\``)
+        .join("\n")}`,
+      focusNodeIds: flat.files.map((f) => f.path),
+    });
+    pushConnections(steps, moduleConnections(flat.files, imports));
+  }
+  if (sourceRoot) {
+    const allModules = childDirs(sourceRoot);
+    const modules = allModules.slice(0, 8);
+    const describeModule = (d: FileTreeNode) => {
+      const ws = project.workspaces?.find((w) => w.dir === d.path);
+      if (ws?.description) return `\`${d.name}/\` — ${firstSentence(ws.description)}`;
+      return describeDir(d.name);
+    };
+    steps.push({
+      id: "source-modules",
+      title: "How the code is organized",
+      description: `Inside \`${sourceRoot.path}/\`, the code is split into:\n\n${modules.map((d) => `- ${describeModule(d)}`).join("\n")}`,
       focusNodeIds: modules.map((d) => d.path),
     });
+
+    pushConnections(steps, moduleConnections(allModules, imports));
   }
 
   const configFiles = topFiles.filter((c) => CONFIG_FILES.has(c.name) || /\.config\.[cm]?[jt]s$/.test(c.name));

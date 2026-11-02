@@ -101,6 +101,22 @@ describe("generateTour", () => {
     const s = step("source-modules")!;
     expect(s.focusNodeIds).toEqual(["backend/app/api", "backend/app/core", "backend/app/models"]);
   });
+  it("explains how modules depend on each other", () => {
+    const withImports = {
+      ...project,
+      _imports: {
+        nodes: [],
+        edges: [
+          { from: "backend/app/api/routes.py", to: "backend/app/models/user.py", imports: ["x"] },
+          { from: "backend/app/api/deps.py", to: "backend/app/models/item.py", imports: ["x"] },
+          { from: "backend/app/api/deps.py", to: "backend/app/core/config.py", imports: ["x"] },
+        ],
+      },
+    };
+    const s = generateTour(withImports).steps.find((x) => x.id === "connections")!;
+    expect(s.description).toContain("`api` uses `models` (2 imports)");
+    expect(s.description).toContain("`api` uses `core` (1 import)");
+  });
   it("never highlights .env in configuration", () => {
     const s = step("configuration")!;
     expect(s.focusNodeIds).toContain("pyproject.toml");

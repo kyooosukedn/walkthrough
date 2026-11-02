@@ -55,6 +55,11 @@ export class EntryPointAnalyzer implements Analyzer {
       }
     }
 
+    // Monorepo packages' bin commands are real entry points too
+    for (const ws of project.workspaces ?? []) {
+      for (const bin of ws.bins) entryPoints.push({ file: bin, type: "cli" });
+    }
+
     // Entries declared in package.json are authoritative; rank them first.
     const declared = new Set(entryPoints.map((e) => e.file));
 
@@ -64,7 +69,9 @@ export class EntryPointAnalyzer implements Analyzer {
     for (const file of files) {
       const relPath = file; // already relative
       const name = basename(relPath);
-      const depth = relPath.split("/").length - 1;
+      // Inside a monorepo package, measure depth from that package's folder
+      const ws = (project.workspaces ?? []).find((w) => relPath.startsWith(w.dir + "/"));
+      const depth = (ws ? relPath.slice(ws.dir.length + 1) : relPath).split("/").length - 1;
 
       for (const pattern of FILE_PATTERNS) {
         if (pattern.match.test(name)) {
@@ -106,8 +113,13 @@ const NOISE_SEGMENTS = new Set([
   "template", "templates", "scaffold", "playground", "benchmarks", "bench",
 ]);
 
+const TEST_FILE_RE = /[._-](test|spec)\.[cm]?[jt]sx?$|^test_.*\.py$|_test\.(py|go)$/;
+
+/** True for tests, fixtures, examples, templates and dot-folders. */
 export function isNoisePath(file: string): boolean {
-  return file.split("/").some((seg) => NOISE_SEGMENTS.has(seg.toLowerCase()) || seg.startsWith("."));
+  const segs = file.split("/");
+  return segs.some((seg) => NOISE_SEGMENTS.has(seg.toLowerCase()) || seg.startsWith("."))
+    || TEST_FILE_RE.test(segs[segs.length - 1]);
 }
 
 /**
@@ -156,7 +168,7 @@ function normalizePath(p: string): string {
 function deduplicate(entries: EntryPoint[]): EntryPoint[] {
   const seen = new Set<string>();
   return entries.filter((ep) => {
-    const key = `${ep.file}:${ep.type}`;
+    const key = ep.file;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;

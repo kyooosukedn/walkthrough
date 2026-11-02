@@ -225,6 +225,20 @@ export interface ProjectInfo {
   packageJson?: Record<string, unknown>;
   tsconfig?: Record<string, unknown>;
   fileTree?: FileTreeNode;
+  /** Packages inside a monorepo (scanner-internal, not part of CodeMap) */
+  workspaces?: WorkspacePackage[];
+}
+
+/** A package inside a monorepo, e.g. packages/ui with name "@acme/ui". */
+export interface WorkspacePackage {
+  name: string;
+  /** Folder relative to project root */
+  dir: string;
+  description?: string;
+  /** Source file that `import "name"` should link to */
+  sourceEntry?: string;
+  /** Source files behind package.json `bin` commands */
+  bins: string[];
 }
 
 // ─── View Interface (used by visualizer) ─────────────────────
