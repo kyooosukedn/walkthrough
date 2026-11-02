@@ -89,7 +89,7 @@ Single-threaded Node, no cache, cold start included (Windows 11, Ryzen 7 5700U):
 ## What's next (in public)
 - [x] Express routes analyzer *(shipped — merged into Routes view)*
 - [ ] Code-splitting the visualizer bundle (currently 1.86 MB)
-- [ ] npm publish (`npx walkthrough`)
+- [ ] npm publish (`npx code-walkthrough`)
 
 This repo is built in the open. See [DECISIONS.md](./DECISIONS.md) for the tradeoffs and rejected alternatives behind the current shape.
 

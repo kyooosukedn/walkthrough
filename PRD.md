@@ -1,3 +1,5 @@
+> **Historical document.** This is the original product vision from when the project was called CodeMap. Not everything here shipped (e.g. the Data Flow view). For what exists today see [README.md](./README.md) and [ROADMAP.md](./ROADMAP.md).
+
 # CodeMap — PRD
 
 **One-liner:** Point it at any codebase. Get a guided, animated architecture walkthrough. Understand everything.
