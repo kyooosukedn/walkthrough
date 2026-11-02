@@ -10,12 +10,24 @@ export class SourceError extends Error {
   }
 }
 
+const SECRET_NAMES = new Set([".npmrc", ".pypirc", ".netrc", ".pgpass", "credentials.json", "id_rsa", "id_ed25519", "id_ecdsa"]);
+const SECRET_EXT = /\.(pem|key|p12|pfx|jks|keystore)$/i;
+const SAFE_ENV = /^\.env\.(example|sample|template|dist|defaults)$/i;
+
+/** Files the preview never shows: env files, private keys, credential stores. */
+export function isSecretFile(path: string): boolean {
+  const name = path.slice(path.lastIndexOf("/") + 1);
+  if (/^\.env($|\.)/i.test(name)) return !SAFE_ENV.test(name);
+  return SECRET_NAMES.has(name) || SECRET_EXT.test(name);
+}
+
 /** Read a scanned text file without following links outside the checkout. */
 export async function readSource(rootPath: string, path: string, allowedPaths: ReadonlySet<string>): Promise<string> {
   if (!path || isAbsolute(path) || path.includes("\\") || path.includes("\0") || path.split("/").some((segment) => !segment || segment === "." || segment === "..") || /^[a-z]:/i.test(path)) {
     throw new SourceError("Invalid source path.");
   }
   if (!allowedPaths.has(path)) throw new SourceError("File was not in this scan.", 404);
+  if (isSecretFile(path)) throw new SourceError("Hidden: this file may contain secrets.", 403);
 
   const root = await realpath(rootPath);
   let target: string;
