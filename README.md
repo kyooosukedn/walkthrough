@@ -5,10 +5,18 @@
 Walkthrough scans a local checkout and shows its docs, manifests, tests, source roots, likely entry files, and file search. Open a file in the read-only preview, or explore the existing architecture map and tour. Language-specific analysis adds routes, components, and database views when supported.
 
 ```bash
-npx walkthrough-cli ./path/to/your/project
+npx code-walkthrough ./path/to/your/project
 ```
 
-*(until the npm publish lands: `npx github:kyooosukedn/walkthrough`)*
+Not on npm yet. Until then, run it from source:
+
+```bash
+git clone https://github.com/kyooosukedn/walkthrough && cd walkthrough
+npm ci && npm run build
+node packages/cli/dist/index.js /path/to/your/project
+```
+
+*(The unrelated npm package `walkthrough-cli` is **not** this project.)*
 
 Your browser opens to a repo orientation screen. Pick a real file or search by path. The architecture tour remains available as an optional view.
 ![Guided tour demo](docs/demo-tour.gif)
@@ -46,7 +54,7 @@ Three packages, one contract:
 
 - **`@walkthrough/scanner`** — scans a codebase and emits `codemap.json`. Usable standalone in CI or scripts.
 - **`@walkthrough/visualizer`** — data-driven React app (React Flow + elkjs). Renders any valid `codemap.json`, even hand-written.
-- **`walkthrough-cli`** — wires them together and serves a contained, read-only source preview on loopback. One command, browser opens.
+- **`code-walkthrough`** (the CLI) — bundles the scanner, wires everything together and serves a contained, read-only source preview on loopback. One command, browser opens.
 
 The scanner and visualizer never speak directly. The JSON is the entire contract — versioned, progressive (a minimal file-tree-only map is valid), schema-typed on both sides.
 
@@ -67,6 +75,8 @@ Single-threaded Node, no cache, cold start included (Windows 11, Ryzen 7 5700U):
 - [x] Universal repo orientation: docs, manifests, tests, source roots, and filename search
 - [x] Read-only preview of scanned UTF-8 files on the local CLI server
 - [x] Conventional Python, Go, and Rust entry-file suggestions
+- [x] "How the parts connect" tour step from real imports — JS/TS, Python, Go, and monorepo packages (`@scope/pkg` → its source)
+- [x] Entry points ranked for newcomers (tests, fixtures, templates never come first)
 - [x] Routes view (Next.js App Router + Pages Router analyzers)
 - [x] Component tree view (React analyzer: PascalCase exports, pages, who-imports-whom)
 - [x] Database schema view (Prisma models + SQL migrations: tables, columns, FK relations, ER overview)

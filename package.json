@@ -10,7 +10,7 @@
     "build": "npm run build:scanner && npm run build:visualizer && npm run build:cli",
     "build:scanner": "npm run build --workspace=@walkthrough/scanner",
     "build:visualizer": "npm run build --workspace=@walkthrough/visualizer",
-    "build:cli": "npm run build --workspace=walkthrough-cli",
+    "build:cli": "npm run build --workspace=code-walkthrough",
     "dev": "npm run dev --workspace=@walkthrough/visualizer",
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",

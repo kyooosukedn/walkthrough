@@ -1,5 +1,5 @@
 {
-  "name": "walkthrough-cli",
+  "name": "code-walkthrough",
   "version": "0.1.0",
   "description": "◆ Understand any codebase in 5 minutes — scan a project, get an interactive guided architecture tour in your browser",
   "type": "module",
@@ -8,7 +8,6 @@
   },
   "files": [
     "dist",
-    "scripts",
     "README.md"
   ],
   "keywords": [
@@ -33,15 +32,19 @@
   },
   "homepage": "https://github.com/kyooosukedn/walkthrough#readme",
   "scripts": {
-    "build": "tsc && node scripts/bundle-visualizer.mjs",
+    "build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && tsc --noEmit && esbuild src/index.ts --bundle --platform=node --format=esm --target=node18 --outfile=dist/index.js && node scripts/bundle-visualizer.mjs",
     "typecheck": "tsc --noEmit",
-    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
-  },
-  "dependencies": {
-    "@walkthrough/scanner": "^0.1.0"
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "prepack": "node -e \"require('fs').copyFileSync('../../README.md','README.md')\"",
+    "test": "esbuild src/*.test.ts --bundle --platform=node --format=esm --outdir=.test --out-extension:.js=.mjs --log-level=warning && node --test .test/"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",
+    "@walkthrough/scanner": "^0.1.0",
+    "esbuild": "^0.25.12",
     "typescript": "^6.0.3"
+  },
+  "engines": {
+    "node": ">=18.17"
   }
 }

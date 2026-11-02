@@ -11,3 +11,5 @@ Thumbs.db
 # TypeScript build output in packages
 packages/*/dist/
 .gstack/
+packages/cli/README.md
+packages/cli/.test/

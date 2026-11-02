@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
-import { resolve, join, relative, isAbsolute, sep } from "node:path";
+import { resolve, join, relative, isAbsolute, sep, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { existsSync } from "node:fs";
 import { createServer } from "node:http";
 import { readFile, stat } from "node:fs/promises";
@@ -104,8 +105,9 @@ async function serve(codemap: Awaited<ReturnType<typeof scan>>, port: number) {
 
   // Prefer the visualizer bundled inside this package (published installs);
   // fall back to the monorepo layout for development.
-  const bundled = resolve(import.meta.dirname ?? ".", "visualizer");
-  const devFallback = resolve(import.meta.dirname ?? ".", "../../visualizer/dist");
+  const here = dirname(fileURLToPath(import.meta.url));
+  const bundled = resolve(here, "visualizer");
+  const devFallback = resolve(here, "../../visualizer/dist");
   const visualizerDir = existsSync(join(bundled, "index.html")) ? bundled : devFallback;
   const hasVisualizer = existsSync(join(visualizerDir, "index.html"));
 
@@ -223,8 +225,8 @@ Options:
   -h, --help            Show this help
 
 Examples:
-  npx walkthrough-cli ./my-project
-  npx walkthrough-cli ./my-project --json > map.json
-  npx walkthrough-cli ./my-project --port 8080
+  npx code-walkthrough ./my-project
+  npx code-walkthrough ./my-project --json > map.json
+  npx code-walkthrough ./my-project --port 8080
 `);
 }
